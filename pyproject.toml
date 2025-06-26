@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "enver-cli"
+version = "0.1.0"
+description = "A CLI tool using Click and Web3."
+authors = [
+    { name = "Haxors", email = "hanzhaxors@gmail.com" }
+]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "web3==7.12.0",
+    "click==8.2.1"
+]
+
+[project.scripts]
+enver = "enver_cli.main:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
+
+[tool.flake8]
+max-line-length = 88
