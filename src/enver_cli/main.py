@@ -65,7 +65,7 @@ def draw_snake(can, ori_cid_v1, account, timestamp, organization, sig_height, x,
         f"{account.address} | "
         f"{int(timestamp)} | "
         f"{organization} | "
-        "Verify on Ethereum *** "
+        "Verify on Ethereum"
     )
     qr_x = x + 16
     qr_y = y + sig_height / 4
@@ -79,8 +79,9 @@ def draw_snake(can, ori_cid_v1, account, timestamp, organization, sig_height, x,
     perimeter = straight + arc
 
     snake_text_full = snake_text
+    
     while can.stringWidth(snake_text_full, "Courier", 1.5) < perimeter:
-        snake_text_full += "   " + snake_text
+        snake_text_full += "*"
 
     char_idx = 0
     char_width = 1.5
