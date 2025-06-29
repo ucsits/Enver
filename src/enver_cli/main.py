@@ -61,11 +61,11 @@ def draw_snake(can, ori_cid_v1, account, timestamp, organization, sig_height, x,
     can.setStrokeAlpha(0.35)
     can.setFont("Courier", 1.5)
     snake_text = (
-        f"{ori_cid_v1} | "
+        f" {ori_cid_v1} | "
         f"{account.address} | "
         f"{int(timestamp)} | "
         f"{organization} | "
-        "Verify on Ethereum"
+        "Verify on Ethereum "
     )
     qr_x = x + 16
     qr_y = y + sig_height / 4
