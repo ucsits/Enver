@@ -1,5 +1,7 @@
 import hashlib
 import io
+import math
+import time
 from multiformats import multihash
 import qrcode
 from reportlab.pdfgen import canvas
@@ -61,6 +63,7 @@ def to_eth_signed_message(message: str, account: web3.Account) -> bytes:
 @click.option('--organization', '-o', required=False, default='-', help='Organization name for the signature (optional)')
 @click.option('--rpc-url', '-r', default="https://eth.drpc.org", help='Ethereum RPC URL (default: https://eth.drpc.org)')
 def sign(path_to_document, page_number, x, y, scale, signature, private_key, organization, rpc_url):
+    timestamp = math.floor(time.time() * 1000)
     w3 = Web3(Web3.HTTPProvider(rpc_url))
     account = web3.Account.from_key(private_key)
 
@@ -95,7 +98,7 @@ def sign(path_to_document, page_number, x, y, scale, signature, private_key, org
     signature_bytes, signed_message = to_eth_signed_message(
         (
             f"CID {ori_cid_v1} signed by {account.address}. " +
-            f"Timestamp: {Web3.to_int(w3.eth.get_block('latest')['timestamp'])}. " +
+            f"Timestamp: {int(timestamp)}. " +
             f"Organization: {organization}."
         ),
         account
