@@ -197,8 +197,9 @@ def draw_snake(can, ori_cid_v1, account, timestamp, organization, sig_height, x,
 @click.option('--signature', '-s', required=True, help='Path to the signature graphic file')
 @click.option('--private-key', '-pk', required=True, help='Ethereum private key for signing')
 @click.option('--organization', '-o', required=False, default='-', help='Organization name for the signature (optional)')
+@click.option('--stamp', '-st', default=None, help='Path to the stamp graphic file (optional)')
 @click.option('--rpc-url', '-r', default="https://eth.drpc.org", help='Ethereum RPC URL (default: https://eth.drpc.org)')
-def sign(path_to_document, page_number, x, y, scale, signature, private_key, organization, rpc_url):
+def sign(path_to_document, page_number, x, y, scale, signature, private_key, organization, stamp, rpc_url):
     timestamp = math.floor(time.time() * 1000)
     w3 = Web3(Web3.HTTPProvider(rpc_url))
     account = web3.Account.from_key(private_key)
@@ -217,6 +218,8 @@ def sign(path_to_document, page_number, x, y, scale, signature, private_key, org
     sig_width, sig_height = sigImg.getSize()
     sig_width *= scale
     sig_height *= scale
+
+    stampImg = ImageReader(stamp) if stamp else None
 
     with open(path_to_document, "rb") as f:
         content = f.read()
@@ -275,10 +278,22 @@ def sign(path_to_document, page_number, x, y, scale, signature, private_key, org
     can.setFillAlpha(0.1)
     can.setStrokeAlpha(0.1)
     # QR Code
-    can.drawImage(qr_img, x+16, y+sig_height/4, width=64, height=64, mask='auto')
+    qr_x = x+16
+    qr_y = y + sig_height / 4
+    can.drawImage(qr_img, qr_x, qr_y, width=64, height=64, mask='auto')
     
     draw_snake(can, ori_cid_v1, account, timestamp, organization, sig_height, x, y)
     can.restoreState()
+
+    if stampImg:
+        can.saveState()
+        can.setFillAlpha(0.35)
+        stamp_width = 64
+        stamp_height = 64
+        stampX = qr_x - stamp_width/4
+        stampY = qr_y + 10
+        can.drawImage(stampImg, stampX, stampY, width=stamp_width, height=stamp_height, mask='auto')
+        can.restoreState()
 
     can.drawImage(sigImg, x, y, width=sig_width, height=sig_height, mask='auto')
     can.save()
