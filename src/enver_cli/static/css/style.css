@@ -202,15 +202,23 @@ header h1 {
 .file-upload {
     border: 2px dashed #ddd;
     border-radius: 8px;
-    padding: 20px;
+    padding: 25px 20px;
     text-align: center;
     cursor: pointer;
-    transition: border-color 0.3s;
+    transition: all 0.2s ease;
     position: relative;
+    background: #fafafa;
 }
 
 .file-upload:hover {
     border-color: #3498db;
+    background: #f0f7ff;
+}
+
+.file-upload.drag-over {
+    border-color: #3498db;
+    background: #e3f2fd;
+    transform: scale(1.02);
 }
 
 .file-upload input {

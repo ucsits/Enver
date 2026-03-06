@@ -54,16 +54,16 @@ function setupDropZone(zoneId, input) {
     
     zone.addEventListener('dragover', (e) => {
         e.preventDefault();
-        zone.style.borderColor = '#3498db';
+        zone.classList.add('drag-over');
     });
 
     zone.addEventListener('dragleave', () => {
-        zone.style.borderColor = '#ddd';
+        zone.classList.remove('drag-over');
     });
 
     zone.addEventListener('drop', (e) => {
         e.preventDefault();
-        zone.style.borderColor = '#ddd';
+        zone.classList.remove('drag-over');
         const files = e.dataTransfer.files;
         if (files.length > 0) {
             input.files = files;
