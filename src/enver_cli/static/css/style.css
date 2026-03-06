@@ -55,16 +55,23 @@ header h1 {
 }
 
 .toolbar button {
-    padding: 5px 12px;
+    padding: 8px 16px;
     border: 1px solid #ddd;
     background: #fff;
     border-radius: 4px;
     cursor: pointer;
     font-size: 16px;
+    min-width: 44px;
+    min-height: 44px;
+    transition: background 0.2s;
 }
 
 .toolbar button:hover {
-    background: #f0f0f0;
+    background: #e8e8e8;
+}
+
+.toolbar button:active {
+    background: #d0d0d0;
 }
 
 #zoom-level {
