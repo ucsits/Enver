@@ -292,18 +292,21 @@ def sign_document(
     qr_img = ImageReader(tmp_qr_file.name)
 
     qr_size = 64 * (qr_scale if qr_scale is not None else 1.0)
-    can.saveState()
-    can.rotate(qr_rotation if qr_rotation is not None else 5)
-    can.setFillAlpha(0.1)
-    can.setStrokeAlpha(0.1)
     if qr_x is not None and qr_y is not None:
         final_qr_x = qr_x
         final_qr_y = page_height - qr_y - qr_size
     else:
         final_qr_x = x + 16
         final_qr_y = backend_y + sig_height / 4
+    qr_center_x = final_qr_x + qr_size / 2
+    qr_center_y = final_qr_y + qr_size / 2
+    can.saveState()
+    can.translate(qr_center_x, qr_center_y)
+    can.rotate(qr_rotation if qr_rotation is not None else 5)
+    can.setFillAlpha(0.1)
+    can.setStrokeAlpha(0.1)
     can.drawImage(
-        qr_img, final_qr_x, final_qr_y, width=qr_size, height=qr_size, mask="auto"
+        qr_img, -qr_size / 2, -qr_size / 2, width=qr_size, height=qr_size, mask="auto"
     )
 
     draw_snake(
