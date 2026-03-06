@@ -2,6 +2,10 @@ import hashlib
 import io
 import math
 import time
+import os
+import tempfile
+import base64
+from pathlib import Path
 from multiformats import multihash
 import qrcode
 from reportlab.pdfgen import canvas
@@ -11,24 +15,27 @@ from multiformats_cid import CIDv1
 import click
 from web3 import Web3
 import web3
-import os
-import tempfile
-import base64
 from eth_account.messages import encode_defunct
 import PIL
 from PIL import Image, ImageDraw
 from qrcode.image.pil import PilImage
 import web3.eth
+from flask import Flask, render_template, request, jsonify, send_file, url_for
+import pypdfium2 as pdfium
+from werkzeug.utils import secure_filename
+
 
 @click.group()
 def cli():
     """Enver CLI - Interact with Web3 from the command line."""
     pass
 
+
 @cli.command()
 def version():
     """Show the CLI version."""
     click.echo("enver-cli version 0.1.0")
+
 
 @cli.command()
 def eth_block_number():
@@ -43,17 +50,19 @@ def eth_block_number():
         click.echo(f"Error: {e}")
         raise click.ClickException(str(e))
 
+
 def to_eth_signed_message(message: str, account: web3.Account) -> bytes:
     signature_message = encode_defunct(text=message)
     signature_bytes = account.sign_message(signature_message)
     signature_bytes = Web3.to_hex(signature_bytes.signature)
     signature_message = (
-        b"\x19" +
-        signature_message.version +
-        signature_message.header +
-        signature_message.body
-    ).decode('latin-1')
+        b"\x19"
+        + signature_message.version
+        + signature_message.header
+        + signature_message.body
+    ).decode("latin-1")
     return signature_bytes, signature_message
+
 
 def draw_snake(can, ori_cid_v1, account, timestamp, organization, sig_height, x, y):
     can.saveState()
@@ -79,7 +88,7 @@ def draw_snake(can, ori_cid_v1, account, timestamp, organization, sig_height, x,
     perimeter = straight + arc
 
     snake_text_full = snake_text
-    
+
     while can.stringWidth(snake_text_full, "Courier", 1.5) < perimeter:
         snake_text_full += "*"
 
@@ -129,77 +138,116 @@ def draw_snake(can, ori_cid_v1, account, timestamp, organization, sig_height, x,
     draw_text_line(
         qr_x - margin + corner_radius,
         qr_y - margin,
-        1, 0,
+        1,
+        0,
         qr_size + 2 * margin - 2 * corner_radius,
-        0
+        0,
     )
     # Bottom-right corner (quarter circle)
     draw_text_arc(
         qr_x + qr_size + margin - corner_radius,
         qr_y - margin + corner_radius,
         corner_radius,
-        270, 90
+        270,
+        90,
     )
     # Right side
     draw_text_line(
         qr_x + qr_size + margin,
         qr_y - margin + corner_radius,
-        0, 1,
+        0,
+        1,
         qr_size + 2 * margin - 2 * corner_radius,
-        90
+        90,
     )
     # Top-right corner
     draw_text_arc(
         qr_x + qr_size + margin - corner_radius,
         qr_y + qr_size + margin - corner_radius,
         corner_radius,
-        0, 90
+        0,
+        90,
     )
     # Top side
     draw_text_line(
         qr_x + qr_size + margin - corner_radius,
         qr_y + qr_size + margin,
-        -1, 0,
+        -1,
+        0,
         qr_size + 2 * margin - 2 * corner_radius,
-        180
+        180,
     )
     # Top-left corner
     draw_text_arc(
         qr_x - margin + corner_radius,
         qr_y + qr_size + margin - corner_radius,
         corner_radius,
-        90, 90
+        90,
+        90,
     )
     # Left side
     draw_text_line(
         qr_x - margin,
         qr_y + qr_size + margin - corner_radius,
-        0, -1,
+        0,
+        -1,
         qr_size + 2 * margin - 2 * corner_radius,
-        270
+        270,
     )
     # Bottom-left corner
     draw_text_arc(
         qr_x - margin + corner_radius,
         qr_y - margin + corner_radius,
         corner_radius,
-        180, 90
+        180,
+        90,
     )
 
     can.restoreState()
 
+
 @cli.command()
-@click.argument('path_to_document', type=click.Path(exists=True))
-@click.argument('page_number', required=False, default=1, type=int)
-@click.argument('x', required=False, default=50, type=float)
-@click.argument('y', required=False, default=50, type=float)
-@click.option('--scale', default=1.0, type=float, help='Scale factor for the signature image')
-@click.option('--signature', '-s', required=True, help='Path to the signature graphic file')
-@click.option('--private-key', '-pk', required=True, help='Ethereum private key for signing')
-@click.option('--organization', '-o', required=False, default='-', help='Organization name for the signature (optional)')
-@click.option('--stamp', '-st', default=None, help='Path to the stamp graphic file (optional)')
-@click.option('--rpc-url', '-r', default="https://eth.drpc.org", help='Ethereum RPC URL (default: https://eth.drpc.org)')
-def sign(path_to_document, page_number, x, y, scale, signature, private_key, organization, stamp, rpc_url):
+@click.argument("path_to_document", type=click.Path(exists=True))
+@click.argument("page_number", required=False, default=1, type=int)
+@click.argument("x", required=False, default=50, type=float)
+@click.argument("y", required=False, default=50, type=float)
+@click.option(
+    "--scale", default=1.0, type=float, help="Scale factor for the signature image"
+)
+@click.option(
+    "--signature", "-s", required=True, help="Path to the signature graphic file"
+)
+@click.option(
+    "--private-key", "-pk", required=True, help="Ethereum private key for signing"
+)
+@click.option(
+    "--organization",
+    "-o",
+    required=False,
+    default="-",
+    help="Organization name for the signature (optional)",
+)
+@click.option(
+    "--stamp", "-st", default=None, help="Path to the stamp graphic file (optional)"
+)
+@click.option(
+    "--rpc-url",
+    "-r",
+    default="https://eth.drpc.org",
+    help="Ethereum RPC URL (default: https://eth.drpc.org)",
+)
+def sign(
+    path_to_document,
+    page_number,
+    x,
+    y,
+    scale,
+    signature,
+    private_key,
+    organization,
+    stamp,
+    rpc_url,
+):
     timestamp = math.floor(time.time() * 1000)
     w3 = Web3(Web3.HTTPProvider(rpc_url))
     account = web3.Account.from_key(private_key)
@@ -207,7 +255,11 @@ def sign(path_to_document, page_number, x, y, scale, signature, private_key, org
     reader = PdfReader(path_to_document)
     writer = PdfWriter()
 
-    target_page = reader.pages[page_number - 1] if page_number <= len(reader.pages) else reader.pages[-1]
+    target_page = (
+        reader.pages[page_number - 1]
+        if page_number <= len(reader.pages)
+        else reader.pages[-1]
+    )
     page_width = target_page.mediabox.width
     page_height = target_page.mediabox.height
 
@@ -224,9 +276,8 @@ def sign(path_to_document, page_number, x, y, scale, signature, private_key, org
     with open(path_to_document, "rb") as f:
         content = f.read()
         sha256_hash = hashlib.sha256(content).digest()
-        mh = multihash.wrap(sha256_hash, 'sha2-256')
-        ori_cid_v1 = CIDv1('dag-pb', mh)
-
+        mh = multihash.wrap(sha256_hash, "sha2-256")
+        ori_cid_v1 = CIDv1("dag-pb", mh)
 
     qr = qrcode.QRCode(
         version=1,
@@ -236,21 +287,17 @@ def sign(path_to_document, page_number, x, y, scale, signature, private_key, org
     )
     signature_bytes, signed_message = to_eth_signed_message(
         (
-            f"CID {ori_cid_v1} signed by {account.address}. " +
-            f"Timestamp: {int(timestamp)}. " +
-            f"Organization: {organization}."
+            f"CID {ori_cid_v1} signed by {account.address}. "
+            + f"Timestamp: {int(timestamp)}. "
+            + f"Organization: {organization}."
         ),
-        account
+        account,
     )
-    qr.add_data(
-        signature_bytes + ' | ' + signed_message
-    )
+    qr.add_data(signature_bytes + " | " + signed_message)
     qr.make(fit=True)
     # Use PilImage factory for compatibility and set fill/back color as RGB tuples
     qr_data = qr.make_image(
-        image_factory=PilImage,
-        fill_color=(0, 0, 0),
-        back_color=(255, 255, 255)
+        image_factory=PilImage, fill_color=(0, 0, 0), back_color=(255, 255, 255)
     ).convert("RGBA")
 
     # Make QR code rounded with 2 unit corner radius
@@ -261,9 +308,7 @@ def sign(path_to_document, page_number, x, y, scale, signature, private_key, org
     mask = Image.new("L", qr_data.size, 0)
     draw = ImageDraw.Draw(mask)
     draw.rounded_rectangle(
-        [(0, 0), (qr_px_size, qr_px_size)],
-        radius=corner_radius,
-        fill=255
+        [(0, 0), (qr_px_size, qr_px_size)], radius=corner_radius, fill=255
     )
     qr_rounded = qr_data.copy()
     qr_rounded.putalpha(mask)
@@ -278,10 +323,10 @@ def sign(path_to_document, page_number, x, y, scale, signature, private_key, org
     can.setFillAlpha(0.1)
     can.setStrokeAlpha(0.1)
     # QR Code
-    qr_x = x+16
+    qr_x = x + 16
     qr_y = y + sig_height / 4
-    can.drawImage(qr_img, qr_x, qr_y, width=64, height=64, mask='auto')
-    
+    can.drawImage(qr_img, qr_x, qr_y, width=64, height=64, mask="auto")
+
     draw_snake(can, ori_cid_v1, account, timestamp, organization, sig_height, x, y)
     can.restoreState()
 
@@ -290,42 +335,215 @@ def sign(path_to_document, page_number, x, y, scale, signature, private_key, org
         can.setFillAlpha(0.35)
         stamp_width = 64
         stamp_height = 64
-        stampX = qr_x - stamp_width/4
+        stampX = qr_x - stamp_width / 4
         stampY = qr_y + 10
-        can.drawImage(stampImg, stampX, stampY, width=stamp_width, height=stamp_height, mask='auto')
+        can.drawImage(
+            stampImg,
+            stampX,
+            stampY,
+            width=stamp_width,
+            height=stamp_height,
+            mask="auto",
+        )
         can.restoreState()
 
-    can.drawImage(sigImg, x, y, width=sig_width, height=sig_height, mask='auto')
+    can.drawImage(sigImg, x, y, width=sig_width, height=sig_height, mask="auto")
     can.save()
     packet.seek(0)
     tmp_qr_file.close()
-    
 
     signed_pdf = PdfReader(packet)
     target_page.merge_page(signed_pdf.pages[0])
 
     for page in reader.pages:
         writer.add_page(page)
-    
+
     base, ext = os.path.splitext(path_to_document)
     signed_path = f"{base}_signed{ext}"
     with open(signed_path, "wb") as f:
         writer.write(f)
         print(f"Signed document saved to: {signed_path}")
-    
+
     addr = Web3.to_checksum_address(account.address)
     print(f"Signed by\t\t: {addr}")
 
     print(f"Original File CID\t: {ori_cid_v1}")
-    
+
     with open(signed_path, "rb") as f:
         content = f.read()
         sha256_hash = hashlib.sha256(content).digest()
-        mh = multihash.wrap(sha256_hash, 'sha2-256')
-        cid_v1_signed = CIDv1('dag-pb', mh)
+        mh = multihash.wrap(sha256_hash, "sha2-256")
+        cid_v1_signed = CIDv1("dag-pb", mh)
         print(f"Signed File CID\t\t: {cid_v1_signed}")
-    
+
     print(f"Signature bytes\t\t: {signature_bytes}")
-    signed_message_b64 = base64.b64encode(signed_message.encode('utf-8')).decode('utf-8')
+    signed_message_b64 = base64.b64encode(signed_message.encode("utf-8")).decode(
+        "utf-8"
+    )
     print(f"Signed message (base64)\t: {signed_message_b64}")
-    
+
+
+def create_app():
+    app = Flask(__name__)
+    app.secret_key = os.urandom(24)
+    app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
+    app.config["TEMP_DIR"] = Path(tempfile.gettempdir()) / "enver_ui"
+    app.config["TEMP_DIR"].mkdir(parents=True, exist_ok=True)
+
+    @app.route("/")
+    def index():
+        return render_template("index.html")
+
+    @app.route("/render-page", methods=["POST"])
+    def render_page():
+        try:
+            pdf_file = request.files.get("pdf")
+            page_number = int(request.form.get("page_number", 1))
+
+            if not pdf_file:
+                return jsonify({"error": "No PDF file provided"}), 400
+
+            pdf_path = app.config["TEMP_DIR"] / secure_filename(pdf_file.filename)
+            pdf_file.save(pdf_path)
+
+            pdf = pdfium.PdfDocument(str(pdf_path))
+
+            if page_number < 1 or page_number > len(pdf):
+                return jsonify({"error": "Invalid page number"}), 400
+
+            page = pdf[page_number - 1]
+            bitmap = page.render(scale=2, rotation=0)
+            pil_image = bitmap.to_pil()
+
+            img_byte_arr = io.BytesIO()
+            pil_image.save(img_byte_arr, format="PNG")
+            img_byte_arr.seek(0)
+            img_base64 = base64.b64encode(img_byte_arr.read()).decode("utf-8")
+
+            width, height = pil_image.size
+
+            pdf.close()
+            os.unlink(pdf_path)
+
+            return jsonify(
+                {
+                    "image": f"data:image/png;base64,{img_base64}",
+                    "width": width,
+                    "height": height,
+                    "page_count": len(pdfium.PdfDocument(str(pdf_path)))
+                    if pdf_path.exists()
+                    else 0,
+                }
+            )
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/sign", methods=["POST"])
+    def sign_document():
+        try:
+            pdf_file = request.files.get("pdf")
+            signature_file = request.files.get("signature")
+            stamp_file = request.files.get("stamp")
+            private_key = request.form.get("private_key")
+            organization = request.form.get("organization", "-")
+            rpc_url = request.form.get("rpc_url", "https://eth.drpc.org")
+            page_number = int(request.form.get("page_number", 1))
+
+            sig_x = float(request.form.get("sig_x", 50))
+            sig_y = float(request.form.get("sig_y", 50))
+            sig_scale = float(request.form.get("sig_scale", 1.0))
+
+            qr_x = float(request.form.get("qr_x", 66))
+            qr_y = float(request.form.get("qr_y", 62.5))
+
+            stamp_x = float(request.form.get("stamp_x", 50))
+            stamp_y = float(request.form.get("stamp_y", 50))
+            stamp_scale = float(request.form.get("stamp_scale", 1.0))
+
+            if not all([pdf_file, signature_file, private_key]):
+                return jsonify({"error": "Missing required fields"}), 400
+
+            pdf_path = app.config["TEMP_DIR"] / secure_filename(pdf_file.filename)
+            sig_path = app.config["TEMP_DIR"] / secure_filename(signature_file.filename)
+
+            pdf_file.save(pdf_path)
+            signature_file.save(sig_path)
+
+            stamp_path = None
+            if stamp_file and stamp_file.filename:
+                stamp_path = app.config["TEMP_DIR"] / secure_filename(
+                    stamp_file.filename
+                )
+                stamp_file.save(stamp_path)
+
+            from enver_cli.main import sign as cli_sign
+            import sys
+            from io import StringIO
+
+            old_stdout = sys.stdout
+            sys.stdout = mystdout = StringIO()
+
+            try:
+                cli_sign(
+                    str(pdf_path),
+                    page_number,
+                    sig_x,
+                    sig_y,
+                    sig_scale,
+                    str(sig_path),
+                    private_key,
+                    organization,
+                    str(stamp_path) if stamp_path else None,
+                    rpc_url,
+                )
+                output = mystdout.getvalue()
+            finally:
+                sys.stdout = old_stdout
+
+            base, ext = os.path.splitext(pdf_path.name)
+            signed_filename = f"{base}_signed{ext}"
+            signed_path = pdf_path.parent / signed_filename
+
+            if not signed_path.exists():
+                base_orig, ext_orig = os.path.splitext(pdf_file.filename)
+                signed_filename = f"{base_orig}_signed{ext_orig}"
+                signed_path = app.config["TEMP_DIR"] / signed_filename
+
+            return jsonify(
+                {
+                    "success": True,
+                    "download_url": url_for("download_file", filename=signed_filename),
+                    "output": output,
+                }
+            )
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/download/<filename>")
+    def download_file(filename):
+        try:
+            file_path = app.config["TEMP_DIR"] / secure_filename(filename)
+            if not file_path.exists():
+                return jsonify({"error": "File not found"}), 404
+            return send_file(
+                file_path,
+                as_attachment=True,
+                download_name=filename,
+                mimetype="application/pdf",
+            )
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    return app
+
+
+@cli.command()
+@click.option("--host", default="127.0.0.1", help="Host to bind to")
+@click.option("--port", default=5000, help="Port to bind to")
+@click.option("--debug", is_flag=True, help="Enable debug mode")
+def run_ui(host, port, debug):
+    """Launch the web UI for document signing."""
+    app = create_app()
+    click.echo(f"Starting Enver UI at http://{host}:{port}")
+    click.echo("Press CTRL+C to quit")
+    app.run(host=host, port=port, debug=debug)
