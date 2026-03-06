@@ -2,9 +2,9 @@ const pdfjsLib = window.pdfjsLib;
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 const elements = {
-    signature: { x: 50, y: 50, scale: 1.0, image: null, visible: true },
-    stamp: { x: 300, y: 50, scale: 1.0, image: null, visible: true },
-    qr: { x: 66, y: 62.5, width: 64, height: 64, visible: true }
+    signature: { x: 50, y: 50, scale: 1.0, image: null, visible: false },
+    stamp: { x: 300, y: 50, scale: 1.0, image: null, visible: false },
+    qr: { x: 66, y: 62.5, scale: 1.0, width: 64, height: 64, visible: true }
 };
 
 let selectedElement = null;
@@ -133,6 +133,7 @@ function loadImage(file, type) {
     const reader = new FileReader();
     reader.onload = (e) => {
         elements[type].image = e.target.result;
+        elements[type].visible = true;
         const el = document.getElementById(`${type}-el`);
         el.classList.add('loading');
         el.style.backgroundImage = `url(${e.target.result})`;
@@ -144,6 +145,7 @@ function loadImage(file, type) {
             const h = img.height * elements[type].scale;
             el.style.width = w + 'px';
             el.style.height = h + 'px';
+            updateElementPositions();
         };
         img.src = e.target.result;
     };
@@ -360,8 +362,13 @@ function setupControls() {
         updateElementPositions();
     });
 
+    document.getElementById('show-signature').addEventListener('change', (e) => {
+        elements.signature.visible = e.target.checked && elements.signature.image !== null;
+        updateElementPositions();
+    });
+
     document.getElementById('show-stamp').addEventListener('change', (e) => {
-        elements.stamp.visible = e.target.checked;
+        elements.stamp.visible = e.target.checked && elements.stamp.image !== null;
         updateElementPositions();
     });
 
