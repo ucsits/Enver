@@ -460,6 +460,7 @@ function setupSigning() {
         progress.classList.remove('hidden');
         result.classList.add('hidden');
         error.classList.add('hidden');
+        error.querySelector('.error-msg').textContent = '';
         signBtn.disabled = true;
 
         try {
