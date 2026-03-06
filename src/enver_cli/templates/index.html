@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enver - Document Signing</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Enver Document Signing</h1>
+        </header>
+
+        <div class="main-content">
+            <div class="preview-panel">
+                <div class="toolbar">
+                    <button id="zoom-out">−</button>
+                    <span id="zoom-level">100%</span>
+                    <button id="zoom-in">+</button>
+                    <button id="grid-snap">Grid Snap: Off</button>
+                </div>
+                <div class="canvas-container" id="canvas-container">
+                    <canvas id="pdf-canvas"></canvas>
+                    <div id="elements-layer">
+                        <div class="element signature" id="signature-el" data-type="signature">
+                            <div class="resize-handle nw"></div>
+                            <div class="resize-handle ne"></div>
+                            <div class="resize-handle sw"></div>
+                            <div class="resize-handle se"></div>
+                        </div>
+                        <div class="element stamp" id="stamp-el" data-type="stamp">
+                            <div class="resize-handle nw"></div>
+                            <div class="resize-handle ne"></div>
+                            <div class="resize-handle sw"></div>
+                            <div class="resize-handle se"></div>
+                        </div>
+                        <div class="element qr-code" id="qr-el" data-type="qr">
+                            <div class="resize-handle nw"></div>
+                            <div class="resize-handle ne"></div>
+                            <div class="resize-handle sw"></div>
+                            <div class="resize-handle se"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="page-selector">
+                    <label for="page-number">Page:</label>
+                    <input type="number" id="page-number" min="1" value="1">
+                    <span id="page-count"></span>
+                    <button id="load-page">Load</button>
+                </div>
+            </div>
+
+            <div class="controls-panel">
+                <div class="section">
+                    <h3>Document</h3>
+                    <div class="file-upload" id="pdf-drop-zone">
+                        <input type="file" id="pdf-input" accept=".pdf">
+                        <p>Drag PDF here or click to select</p>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Signature</h3>
+                    <div class="file-upload" id="sig-drop-zone">
+                        <input type="file" id="signature-input" accept="image/*">
+                        <p>Drag image here or click to select</p>
+                    </div>
+                    <div class="element-controls" data-element="signature">
+                        <div class="coord-row">
+                            <label>X:</label>
+                            <input type="number" id="sig-x" step="1">
+                        </div>
+                        <div class="coord-row">
+                            <label>Y:</label>
+                            <input type="number" id="sig-y" step="1">
+                        </div>
+                        <div class="scale-row">
+                            <label>Scale:</label>
+                            <input type="range" id="sig-scale" min="0.1" max="3.0" step="0.1">
+                            <span id="sig-scale-val">1.0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Stamp (Optional)</h3>
+                    <div class="file-upload" id="stamp-drop-zone">
+                        <input type="file" id="stamp-input" accept="image/*">
+                        <p>Drag image here or click to select</p>
+                    </div>
+                    <label class="toggle">
+                        <input type="checkbox" id="show-stamp" checked>
+                        <span>Show Stamp</span>
+                    </label>
+                    <div class="element-controls" data-element="stamp">
+                        <div class="coord-row">
+                            <label>X:</label>
+                            <input type="number" id="stamp-x" step="1">
+                        </div>
+                        <div class="coord-row">
+                            <label>Y:</label>
+                            <input type="number" id="stamp-y" step="1">
+                        </div>
+                        <div class="scale-row">
+                            <label>Scale:</label>
+                            <input type="range" id="stamp-scale" min="0.1" max="3.0" step="0.1">
+                            <span id="stamp-scale-val">1.0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>QR Code</h3>
+                    <label class="toggle">
+                        <input type="checkbox" id="show-qr" checked>
+                        <span>Show QR Code</span>
+                    </label>
+                    <div class="element-controls" data-element="qr">
+                        <div class="coord-row">
+                            <label>X:</label>
+                            <input type="number" id="qr-x" step="1">
+                        </div>
+                        <div class="coord-row">
+                            <label>Y:</label>
+                            <input type="number" id="qr-y" step="1">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Signing</h3>
+                    <div class="form-row">
+                        <label for="private-key">Private Key:</label>
+                        <input type="password" id="private-key" placeholder="0x...">
+                    </div>
+                    <div class="form-row">
+                        <label for="organization">Organization:</label>
+                        <input type="text" id="organization" value="-">
+                    </div>
+                    <div class="form-row">
+                        <label for="rpc-url">RPC URL:</label>
+                        <input type="text" id="rpc-url" value="https://eth.drpc.org">
+                    </div>
+                    <button id="sign-btn" class="primary">Sign Document</button>
+                </div>
+
+                <div id="progress" class="hidden">
+                    <div class="spinner"></div>
+                    <p>Signing document...</p>
+                </div>
+
+                <div id="result" class="hidden">
+                    <p class="success">Document signed successfully!</p>
+                    <a id="download-link" href="#" class="primary">Download Signed PDF</a>
+                </div>
+
+                <div id="error" class="hidden">
+                    <p class="error-msg"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
