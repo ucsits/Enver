@@ -4,7 +4,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 const elements = {
     signature: { x: 50, y: 50, scale: 1.0, image: null, visible: false },
     stamp: { x: 300, y: 50, scale: 1.0, image: null, visible: false },
-    qr: { x: 66, y: 62.5, scale: 1.0, width: 64, height: 64, visible: true }
+    qr: { x: 66, y: 62.5, scale: 1.0, rotation: 5, width: 64, height: 64, visible: true }
 };
 
 let selectedElement = null;
