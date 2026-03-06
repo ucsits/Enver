@@ -206,6 +206,152 @@ def draw_snake(can, ori_cid_v1, account, timestamp, organization, sig_height, x,
     can.restoreState()
 
 
+def sign_document(
+    path_to_document,
+    page_number,
+    x,
+    y,
+    scale,
+    signature_path,
+    private_key,
+    organization,
+    stamp_path,
+    rpc_url,
+):
+    """Core signing logic used by both CLI and web UI."""
+    timestamp = math.floor(time.time() * 1000)
+    w3 = Web3(Web3.HTTPProvider(rpc_url))
+    account = web3.Account.from_key(private_key)
+
+    reader = PdfReader(path_to_document)
+    writer = PdfWriter()
+
+    target_page = (
+        reader.pages[page_number - 1]
+        if page_number <= len(reader.pages)
+        else reader.pages[-1]
+    )
+    page_width = target_page.mediabox.width
+    page_height = target_page.mediabox.height
+
+    packet = io.BytesIO()
+    can = canvas.Canvas(packet, pagesize=(page_width, page_height))
+
+    sigImg = ImageReader(signature_path)
+    sig_width, sig_height = sigImg.getSize()
+    sig_width *= scale
+    sig_height *= scale
+
+    stampImg = ImageReader(stamp_path) if stamp_path else None
+
+    with open(path_to_document, "rb") as f:
+        content = f.read()
+        sha256_hash = hashlib.sha256(content).digest()
+        mh = multihash.wrap(sha256_hash, "sha2-256")
+        ori_cid_v1 = CIDv1("dag-pb", mh)
+
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=0,
+    )
+    signature_bytes, signed_message = to_eth_signed_message(
+        f"CID {ori_cid_v1} signed by {account.address}. "
+        f"Timestamp: {int(timestamp)}. "
+        f"Organization: {organization}.",
+        account,
+    )
+    qr.add_data(signature_bytes + " | " + signed_message)
+    qr.make(fit=True)
+    qr_data = qr.make_image(
+        image_factory=PilImage,
+        fill_color=(0, 0, 0),
+        back_color=(255, 255, 255),
+    ).convert("RGBA")
+
+    qr_px_size = qr_data.size[0]
+    corner_radius = 2 * qr.box_size
+
+    mask = Image.new("L", qr_data.size, 0)
+    draw = ImageDraw.Draw(mask)
+    draw.rounded_rectangle(
+        [(0, 0), (qr_px_size, qr_px_size)], radius=corner_radius, fill=255
+    )
+    qr_rounded = qr_data.copy()
+    qr_rounded.putalpha(mask)
+
+    tmp_qr_file = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    qr_rounded.save(tmp_qr_file, format="PNG")
+    qr_img = ImageReader(tmp_qr_file.name)
+
+    can.saveState()
+    can.rotate(5)
+    can.translate(20, -35)
+    can.setFillAlpha(0.1)
+    can.setStrokeAlpha(0.1)
+    qr_x = x + 16
+    qr_y = y + sig_height / 4
+    can.drawImage(qr_img, qr_x, qr_y, width=64, height=64, mask="auto")
+
+    draw_snake(can, ori_cid_v1, account, timestamp, organization, sig_height, x, y)
+    can.restoreState()
+
+    if stampImg:
+        can.saveState()
+        can.setFillAlpha(0.35)
+        stamp_width = 64
+        stamp_height = 64
+        stampX = qr_x - stamp_width / 4
+        stampY = qr_y + 10
+        can.drawImage(
+            stampImg,
+            stampX,
+            stampY,
+            width=stamp_width,
+            height=stamp_height,
+            mask="auto",
+        )
+        can.restoreState()
+
+    can.drawImage(sigImg, x, y, width=sig_width, height=sig_height, mask="auto")
+    can.save()
+    packet.seek(0)
+    tmp_qr_file.close()
+
+    signed_pdf = PdfReader(packet)
+    target_page.merge_page(signed_pdf.pages[0])
+
+    for page in reader.pages:
+        writer.add_page(page)
+
+    base, ext = os.path.splitext(path_to_document)
+    signed_path = f"{base}_signed{ext}"
+    with open(signed_path, "wb") as f:
+        writer.write(f)
+
+    addr = Web3.to_checksum_address(account.address)
+
+    with open(signed_path, "rb") as f:
+        content = f.read()
+        sha256_hash = hashlib.sha256(content).digest()
+        mh = multihash.wrap(sha256_hash, "sha2-256")
+        cid_v1_signed = CIDv1("dag-pb", mh)
+
+    signed_message_b64 = base64.b64encode(signed_message.encode("utf-8")).decode(
+        "utf-8"
+    )
+
+    return {
+        "signed_path": signed_path,
+        "signer": addr,
+        "original_cid": str(ori_cid_v1),
+        "signed_cid": str(cid_v1_signed),
+        "signature_bytes": signature_bytes,
+        "signed_message_b64": signed_message_b64,
+    }
+
+
 @cli.command()
 @click.argument("path_to_document", type=click.Path(exists=True))
 @click.argument("page_number", required=False, default=1, type=int)
@@ -248,139 +394,26 @@ def sign(
     stamp,
     rpc_url,
 ):
-    timestamp = math.floor(time.time() * 1000)
-    w3 = Web3(Web3.HTTPProvider(rpc_url))
-    account = web3.Account.from_key(private_key)
-
-    reader = PdfReader(path_to_document)
-    writer = PdfWriter()
-
-    target_page = (
-        reader.pages[page_number - 1]
-        if page_number <= len(reader.pages)
-        else reader.pages[-1]
+    """Sign a PDF document with signature image and QR code."""
+    result = sign_document(
+        path_to_document,
+        page_number,
+        x,
+        y,
+        scale,
+        signature,
+        private_key,
+        organization,
+        stamp,
+        rpc_url,
     )
-    page_width = target_page.mediabox.width
-    page_height = target_page.mediabox.height
 
-    packet = io.BytesIO()
-    can = canvas.Canvas(packet, pagesize=(page_width, page_height))
-
-    sigImg = ImageReader(signature)
-    sig_width, sig_height = sigImg.getSize()
-    sig_width *= scale
-    sig_height *= scale
-
-    stampImg = ImageReader(stamp) if stamp else None
-
-    with open(path_to_document, "rb") as f:
-        content = f.read()
-        sha256_hash = hashlib.sha256(content).digest()
-        mh = multihash.wrap(sha256_hash, "sha2-256")
-        ori_cid_v1 = CIDv1("dag-pb", mh)
-
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=0,
-    )
-    signature_bytes, signed_message = to_eth_signed_message(
-        (
-            f"CID {ori_cid_v1} signed by {account.address}. "
-            + f"Timestamp: {int(timestamp)}. "
-            + f"Organization: {organization}."
-        ),
-        account,
-    )
-    qr.add_data(signature_bytes + " | " + signed_message)
-    qr.make(fit=True)
-    # Use PilImage factory for compatibility and set fill/back color as RGB tuples
-    qr_data = qr.make_image(
-        image_factory=PilImage, fill_color=(0, 0, 0), back_color=(255, 255, 255)
-    ).convert("RGBA")
-
-    # Make QR code rounded with 2 unit corner radius
-    qr_px_size = qr_data.size[0]
-    corner_radius = 2 * qr.box_size  # 2 units in pixels
-
-    # Create rounded mask
-    mask = Image.new("L", qr_data.size, 0)
-    draw = ImageDraw.Draw(mask)
-    draw.rounded_rectangle(
-        [(0, 0), (qr_px_size, qr_px_size)], radius=corner_radius, fill=255
-    )
-    qr_rounded = qr_data.copy()
-    qr_rounded.putalpha(mask)
-
-    tmp_qr_file = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-    qr_rounded.save(tmp_qr_file, format="PNG")
-    qr_img = ImageReader(tmp_qr_file.name)
-
-    can.saveState()
-    can.rotate(5)
-    can.translate(20, -35)
-    can.setFillAlpha(0.1)
-    can.setStrokeAlpha(0.1)
-    # QR Code
-    qr_x = x + 16
-    qr_y = y + sig_height / 4
-    can.drawImage(qr_img, qr_x, qr_y, width=64, height=64, mask="auto")
-
-    draw_snake(can, ori_cid_v1, account, timestamp, organization, sig_height, x, y)
-    can.restoreState()
-
-    if stampImg:
-        can.saveState()
-        can.setFillAlpha(0.35)
-        stamp_width = 64
-        stamp_height = 64
-        stampX = qr_x - stamp_width / 4
-        stampY = qr_y + 10
-        can.drawImage(
-            stampImg,
-            stampX,
-            stampY,
-            width=stamp_width,
-            height=stamp_height,
-            mask="auto",
-        )
-        can.restoreState()
-
-    can.drawImage(sigImg, x, y, width=sig_width, height=sig_height, mask="auto")
-    can.save()
-    packet.seek(0)
-    tmp_qr_file.close()
-
-    signed_pdf = PdfReader(packet)
-    target_page.merge_page(signed_pdf.pages[0])
-
-    for page in reader.pages:
-        writer.add_page(page)
-
-    base, ext = os.path.splitext(path_to_document)
-    signed_path = f"{base}_signed{ext}"
-    with open(signed_path, "wb") as f:
-        writer.write(f)
-        print(f"Signed document saved to: {signed_path}")
-
-    addr = Web3.to_checksum_address(account.address)
-    print(f"Signed by\t\t: {addr}")
-
-    print(f"Original File CID\t: {ori_cid_v1}")
-
-    with open(signed_path, "rb") as f:
-        content = f.read()
-        sha256_hash = hashlib.sha256(content).digest()
-        mh = multihash.wrap(sha256_hash, "sha2-256")
-        cid_v1_signed = CIDv1("dag-pb", mh)
-        print(f"Signed File CID\t\t: {cid_v1_signed}")
-
-    print(f"Signature bytes\t\t: {signature_bytes}")
-    signed_message_b64 = base64.b64encode(signed_message.encode("utf-8")).decode(
-        "utf-8"
-    )
-    print(f"Signed message (base64)\t: {signed_message_b64}")
+    print(f"Signed document saved to: {result['signed_path']}")
+    print(f"Signed by\t\t: {result['signer']}")
+    print(f"Original File CID\t: {result['original_cid']}")
+    print(f"Signed File CID\t\t: {result['signed_cid']}")
+    print(f"Signature bytes\t\t: {result['signature_bytes']}")
+    print(f"Signed message (base64)\t: {result['signed_message_b64']}")
 
 
 def create_app():
@@ -421,6 +454,7 @@ def create_app():
             img_base64 = base64.b64encode(img_byte_arr.read()).decode("utf-8")
 
             width, height = pil_image.size
+            page_count = len(pdf)
 
             pdf.close()
             os.unlink(pdf_path)
@@ -430,16 +464,14 @@ def create_app():
                     "image": f"data:image/png;base64,{img_base64}",
                     "width": width,
                     "height": height,
-                    "page_count": len(pdfium.PdfDocument(str(pdf_path)))
-                    if pdf_path.exists()
-                    else 0,
+                    "page_count": page_count,
                 }
             )
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
     @app.route("/sign", methods=["POST"])
-    def sign_document():
+    def sign_pdf():
         try:
             pdf_file = request.files.get("pdf")
             signature_file = request.files.get("signature")
@@ -452,13 +484,6 @@ def create_app():
             sig_x = float(request.form.get("sig_x", 50))
             sig_y = float(request.form.get("sig_y", 50))
             sig_scale = float(request.form.get("sig_scale", 1.0))
-
-            qr_x = float(request.form.get("qr_x", 66))
-            qr_y = float(request.form.get("qr_y", 62.5))
-
-            stamp_x = float(request.form.get("stamp_x", 50))
-            stamp_y = float(request.form.get("stamp_y", 50))
-            stamp_scale = float(request.form.get("stamp_scale", 1.0))
 
             if not all([pdf_file, signature_file, private_key]):
                 return jsonify({"error": "Missing required fields"}), 400
@@ -476,44 +501,26 @@ def create_app():
                 )
                 stamp_file.save(stamp_path)
 
-            from enver_cli.main import sign as cli_sign
-            import sys
-            from io import StringIO
+            result = sign_document(
+                str(pdf_path),
+                page_number,
+                sig_x,
+                sig_y,
+                sig_scale,
+                str(sig_path),
+                private_key,
+                organization,
+                str(stamp_path) if stamp_path else None,
+                rpc_url,
+            )
 
-            old_stdout = sys.stdout
-            sys.stdout = mystdout = StringIO()
-
-            try:
-                cli_sign(
-                    str(pdf_path),
-                    page_number,
-                    sig_x,
-                    sig_y,
-                    sig_scale,
-                    str(sig_path),
-                    private_key,
-                    organization,
-                    str(stamp_path) if stamp_path else None,
-                    rpc_url,
-                )
-                output = mystdout.getvalue()
-            finally:
-                sys.stdout = old_stdout
-
-            base, ext = os.path.splitext(pdf_path.name)
-            signed_filename = f"{base}_signed{ext}"
-            signed_path = pdf_path.parent / signed_filename
-
-            if not signed_path.exists():
-                base_orig, ext_orig = os.path.splitext(pdf_file.filename)
-                signed_filename = f"{base_orig}_signed{ext_orig}"
-                signed_path = app.config["TEMP_DIR"] / signed_filename
+            signed_filename = os.path.basename(result["signed_path"])
 
             return jsonify(
                 {
                     "success": True,
                     "download_url": url_for("download_file", filename=signed_filename),
-                    "output": output,
+                    "output": f"Signed by: {result['signer']}\nOriginal CID: {result['original_cid']}\nSigned CID: {result['signed_cid']}",
                 }
             )
         except Exception as e:
