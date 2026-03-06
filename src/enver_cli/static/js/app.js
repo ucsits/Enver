@@ -474,6 +474,9 @@ function setupSigning() {
             if (response.ok && data.success) {
                 document.getElementById('download-link').href = data.download_url;
                 result.classList.remove('hidden');
+                
+                const link = document.getElementById('download-link');
+                link.click();
             } else {
                 throw new Error(data.error || 'Signing failed');
             }
