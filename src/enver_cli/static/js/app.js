@@ -430,6 +430,7 @@ function updateElementPositions() {
             el.style.top = canvasY + 'px';
             el.style.width = (data.width * data.scale * renderScale * currentZoom) + 'px';
             el.style.height = (data.height * data.scale * renderScale * currentZoom) + 'px';
+            el.style.transform = `rotate(${data.rotation}deg)`;
         } else {
             el.style.left = canvasX + 'px';
             el.style.top = canvasY + 'px';
@@ -507,7 +508,14 @@ function setupControls() {
         const scale = parseFloat(e.target.value);
         const clampedScale = Math.max(0.01, Math.min(3.0, scale));
         elements.qr.scale = clampedScale;
-        document.getElementById('qr-scale-val').textContent = clampedScale.toFixed(1);
+        document.getElementById('qr-scale-val').textContent = clampedScale.toFixed(2);
+        updateElementPositions();
+    });
+
+    document.getElementById('qr-rotation').addEventListener('input', (e) => {
+        const rotation = parseFloat(e.target.value) || 0;
+        elements.qr.rotation = rotation;
+        document.getElementById('qr-rotation-val').textContent = Math.round(rotation);
         updateElementPositions();
     });
 
@@ -565,7 +573,9 @@ function setupControls() {
         document.getElementById('qr-x').value = elements.qr.x;
         document.getElementById('qr-y').value = elements.qr.y;
         document.getElementById('qr-scale').value = elements.qr.scale;
-        document.getElementById('qr-scale-val').textContent = elements.qr.scale.toFixed(1);
+        document.getElementById('qr-scale-val').textContent = elements.qr.scale.toFixed(2);
+        document.getElementById('qr-rotation').value = elements.qr.rotation;
+        document.getElementById('qr-rotation-val').textContent = Math.round(elements.qr.rotation);
 
         updateElementPositions();
     });
@@ -581,6 +591,10 @@ function updateControlValues() {
     } else if (selectedElement === 'qr') {
         document.getElementById('qr-x').value = Math.round(elements.qr.x);
         document.getElementById('qr-y').value = Math.round(elements.qr.y);
+        const rotationInput = document.getElementById('qr-rotation');
+        const rotationVal = document.getElementById('qr-rotation-val');
+        if (rotationInput) rotationInput.value = elements.qr.rotation;
+        if (rotationVal) rotationVal.textContent = Math.round(elements.qr.rotation);
     }
 }
 
@@ -641,7 +655,8 @@ function setupSigning() {
         
         formData.append('qr_x', elements.qr.x);
         formData.append('qr_y', elements.qr.y);
-        
+        formData.append('qr_rotation', elements.qr.rotation);
+
         formData.append('stamp_x', elements.stamp.x);
         formData.append('stamp_y', elements.stamp.y);
         formData.append('stamp_scale', elements.stamp.scale);
