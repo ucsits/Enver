@@ -225,7 +225,7 @@ function handleMouseMove(e) {
         
         updateElementPositions();
         updateControlValues();
-    } else if (isResizing && selectedElement !== 'qr') {
+    } else if (isResizing) {
         const el = document.getElementById(`${selectedElement}-el`);
         const rect = el.getBoundingClientRect();
         const containerRect = canvasContainer.getBoundingClientRect();
@@ -250,20 +250,31 @@ function handleMouseMove(e) {
         }
         
         if (newWidth && newHeight) {
-            const originalImage = elements[selectedElement].image;
-            if (originalImage) {
-                const img = new Image();
-                img.onload = () => {
-                    const scale = newWidth / img.width;
-                    elements[selectedElement].scale = scale;
-                    const scaleInput = document.getElementById(`${selectedElement}-scale`);
-                    const scaleVal = document.getElementById(`${selectedElement}-scale-val`);
-                    if (scaleInput) scaleInput.value = scale;
-                    if (scaleVal) scaleVal.textContent = scale.toFixed(1);
-                    updateElementPositions();
-                    updateControlValues();
-                };
-                img.src = originalImage;
+            if (selectedElement === 'qr') {
+                const scale = newWidth / elements.qr.width;
+                elements.qr.scale = Math.max(0.1, Math.min(3.0, scale));
+                const scaleInput = document.getElementById('qr-scale');
+                const scaleVal = document.getElementById('qr-scale-val');
+                if (scaleInput) scaleInput.value = elements.qr.scale;
+                if (scaleVal) scaleVal.textContent = elements.qr.scale.toFixed(1);
+                updateElementPositions();
+                updateControlValues();
+            } else {
+                const originalImage = elements[selectedElement].image;
+                if (originalImage) {
+                    const img = new Image();
+                    img.onload = () => {
+                        const scale = newWidth / img.width;
+                        elements[selectedElement].scale = scale;
+                        const scaleInput = document.getElementById(`${selectedElement}-scale`);
+                        const scaleVal = document.getElementById(`${selectedElement}-scale-val`);
+                        if (scaleInput) scaleInput.value = scale;
+                        if (scaleVal) scaleVal.textContent = scale.toFixed(1);
+                        updateElementPositions();
+                        updateControlValues();
+                    };
+                    img.src = originalImage;
+                }
             }
         }
     }
@@ -299,8 +310,8 @@ function updateElementPositions() {
         if (type === 'qr') {
             el.style.left = canvasX + 'px';
             el.style.top = canvasY + 'px';
-            el.style.width = (data.width * renderScale * currentZoom) + 'px';
-            el.style.height = (data.height * renderScale * currentZoom) + 'px';
+            el.style.width = (data.width * data.scale * renderScale * currentZoom) + 'px';
+            el.style.height = (data.height * data.scale * renderScale * currentZoom) + 'px';
         } else {
             el.style.left = canvasX + 'px';
             el.style.top = canvasY + 'px';
@@ -359,6 +370,12 @@ function setupControls() {
 
     document.getElementById('qr-y').addEventListener('input', (e) => {
         elements.qr.y = parseFloat(e.target.value) || 0;
+        updateElementPositions();
+    });
+
+    document.getElementById('qr-scale').addEventListener('input', (e) => {
+        elements.qr.scale = parseFloat(e.target.value);
+        document.getElementById('qr-scale-val').textContent = parseFloat(e.target.value).toFixed(1);
         updateElementPositions();
     });
 
