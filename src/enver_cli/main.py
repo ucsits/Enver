@@ -219,6 +219,7 @@ def sign_document(
     qr_x=None,
     qr_y=None,
     qr_rotation=None,
+    qr_scale=None,
 ):
     """Core signing logic used by both CLI and web UI."""
     timestamp = math.floor(time.time() * 1000)
@@ -290,17 +291,20 @@ def sign_document(
     qr_rounded.save(tmp_qr_file, format="PNG")
     qr_img = ImageReader(tmp_qr_file.name)
 
+    qr_size = 64 * (qr_scale if qr_scale is not None else 1.0)
     can.saveState()
     can.rotate(qr_rotation if qr_rotation is not None else 5)
     can.setFillAlpha(0.1)
     can.setStrokeAlpha(0.1)
     if qr_x is not None and qr_y is not None:
         final_qr_x = qr_x
-        final_qr_y = page_height - qr_y - 64
+        final_qr_y = page_height - qr_y - qr_size
     else:
         final_qr_x = x + 16
         final_qr_y = backend_y + sig_height / 4
-    can.drawImage(qr_img, final_qr_x, final_qr_y, width=64, height=64, mask="auto")
+    can.drawImage(
+        qr_img, final_qr_x, final_qr_y, width=qr_size, height=qr_size, mask="auto"
+    )
 
     draw_snake(
         can, ori_cid_v1, account, timestamp, organization, final_qr_x, final_qr_y
