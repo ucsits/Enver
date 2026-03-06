@@ -109,6 +109,11 @@ header h1 {
     z-index: 100 !important;
 }
 
+.element.loading {
+    opacity: 0.5;
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
 .element.signature {
     z-index: 30;
     background-color: rgba(52, 152, 219, 0.1);

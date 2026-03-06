@@ -134,10 +134,12 @@ function loadImage(file, type) {
     reader.onload = (e) => {
         elements[type].image = e.target.result;
         const el = document.getElementById(`${type}-el`);
+        el.classList.add('loading');
         el.style.backgroundImage = `url(${e.target.result})`;
         
         const img = new Image();
         img.onload = () => {
+            el.classList.remove('loading');
             const w = img.width * elements[type].scale;
             const h = img.height * elements[type].scale;
             el.style.width = w + 'px';
