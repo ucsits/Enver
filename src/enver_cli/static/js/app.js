@@ -136,14 +136,14 @@ function loadImage(file, type) {
         const el = document.getElementById(`${type}-el`);
         el.style.backgroundImage = `url(${e.target.result})`;
         
-        if (type === 'signature') {
-            const img = new Image();
-            img.onload = () => {
-                el.style.width = (img.width * elements.signature.scale) + 'px';
-                el.style.height = (img.height * elements.signature.scale) + 'px';
-            };
-            img.src = e.target.result;
-        }
+        const img = new Image();
+        img.onload = () => {
+            const w = img.width * elements[type].scale;
+            const h = img.height * elements[type].scale;
+            el.style.width = w + 'px';
+            el.style.height = h + 'px';
+        };
+        img.src = e.target.result;
     };
     reader.readAsDataURL(file);
 }
