@@ -12,6 +12,7 @@ let isDragging = false;
 let isResizing = false;
 let dragOffset = { x: 0, y: 0 };
 let resizeHandle = null;
+let resizeStartData = { width: 0, height: 0, mouseX: 0, mouseY: 0, x: 0, y: 0 };
 let currentZoom = 1.0;
 let gridSnap = false;
 let pdfDoc = null;
@@ -219,10 +220,23 @@ function startDrag(e, type) {
 function startResize(e, type) {
     e.preventDefault();
     e.stopPropagation();
-    
+
     selectElement(type);
     isResizing = true;
     resizeHandle = e.target.classList[1];
+
+    const el = document.getElementById(`${type}-el`);
+    const rect = el.getBoundingClientRect();
+    const containerRect = canvasContainer.getBoundingClientRect();
+    const scrollX = canvasContainer.scrollLeft || 0;
+    const scrollY = canvasContainer.scrollTop || 0;
+
+    resizeStartData.mouseX = e.clientX - containerRect.left + scrollX;
+    resizeStartData.mouseY = e.clientY - containerRect.top + scrollY;
+    resizeStartData.width = rect.width;
+    resizeStartData.height = rect.height;
+    resizeStartData.x = elements[type].x;
+    resizeStartData.y = elements[type].y;
 }
 
 function handleMouseMove(e) {
@@ -252,51 +266,56 @@ function handleMouseMove(e) {
         
         scheduleUpdate();
     } else if (isResizing) {
-        const el = document.getElementById(`${selectedElement}-el`);
-        const rect = el.getBoundingClientRect();
         const containerRect = canvasContainer.getBoundingClientRect();
         const scrollX = canvasContainer.scrollLeft || 0;
         const scrollY = canvasContainer.scrollTop || 0;
-        
-        let newWidth, newHeight;
-        
+
+        const mouseX = e.clientX - containerRect.left + scrollX;
+        const mouseY = e.clientY - containerRect.top + scrollY;
+
+        let newWidth = resizeStartData.width;
+        let newHeight = resizeStartData.height;
+
         if (resizeHandle.includes('e')) {
-            newWidth = (e.clientX - containerRect.left + scrollX - rect.left) / currentZoom;
+            newWidth = resizeStartData.width + (mouseX - resizeStartData.mouseX);
         }
         if (resizeHandle.includes('w')) {
-            newWidth = (rect.right - (e.clientX - containerRect.left + scrollX)) / currentZoom;
-            elements[selectedElement].x += (rect.width - newWidth) / (renderScale * currentZoom);
+            const deltaX = resizeStartData.mouseX - mouseX;
+            newWidth = resizeStartData.width + deltaX;
+            elements[selectedElement].x = resizeStartData.x - (deltaX / renderScale / currentZoom);
         }
         if (resizeHandle.includes('s')) {
-            newHeight = (e.clientY - containerRect.top + scrollY - rect.top) / currentZoom;
+            newHeight = resizeStartData.height + (mouseY - resizeStartData.mouseY);
         }
         if (resizeHandle.includes('n')) {
-            newHeight = (rect.bottom - (e.clientY - containerRect.top + scrollY)) / currentZoom;
-            elements[selectedElement].y += (rect.height - newHeight) / (renderScale * currentZoom);
+            const deltaY = resizeStartData.mouseY - mouseY;
+            newHeight = resizeStartData.height + deltaY;
+            elements[selectedElement].y = resizeStartData.y - (deltaY / renderScale / currentZoom);
         }
-        
-        if (newWidth && newHeight) {
-            if (selectedElement === 'qr') {
-                const scale = newWidth / elements.qr.width;
+
+        newWidth = Math.max(10, newWidth);
+        newHeight = Math.max(10, newHeight);
+
+        if (selectedElement === 'qr') {
+            const scale = newWidth / (elements.qr.width * renderScale * currentZoom);
+            const clampedScale = Math.max(0.01, Math.min(3.0, scale));
+            elements.qr.scale = clampedScale;
+            const scaleInput = document.getElementById('qr-scale');
+            const scaleVal = document.getElementById('qr-scale-val');
+            if (scaleInput) scaleInput.value = clampedScale;
+            if (scaleVal) scaleVal.textContent = clampedScale.toFixed(2);
+            scheduleUpdate();
+        } else {
+            const imgWidth = elements[selectedElement].imgWidth;
+            if (imgWidth) {
+                const scale = newWidth / (imgWidth * renderScale * currentZoom);
                 const clampedScale = Math.max(0.01, Math.min(3.0, scale));
-                elements.qr.scale = clampedScale;
-                const scaleInput = document.getElementById('qr-scale');
-                const scaleVal = document.getElementById('qr-scale-val');
+                elements[selectedElement].scale = clampedScale;
+                const scaleInput = document.getElementById(`${selectedElement}-scale`);
+                const scaleVal = document.getElementById(`${selectedElement}-scale-val`);
                 if (scaleInput) scaleInput.value = clampedScale;
                 if (scaleVal) scaleVal.textContent = clampedScale.toFixed(2);
                 scheduleUpdate();
-            } else {
-                const imgWidth = elements[selectedElement].imgWidth;
-                if (imgWidth) {
-                    const scale = newWidth / imgWidth;
-                    const clampedScale = Math.max(0.01, Math.min(3.0, scale));
-                    elements[selectedElement].scale = clampedScale;
-                    const scaleInput = document.getElementById(`${selectedElement}-scale`);
-                    const scaleVal = document.getElementById(`${selectedElement}-scale-val`);
-                    if (scaleInput) scaleInput.value = clampedScale;
-                    if (scaleVal) scaleVal.textContent = clampedScale.toFixed(2);
-                    scheduleUpdate();
-                }
             }
         }
     }
@@ -316,6 +335,7 @@ function handleMouseUp() {
     isDragging = false;
     isResizing = false;
     resizeHandle = null;
+    resizeStartData = { width: 0, height: 0, mouseX: 0, mouseY: 0, x: 0, y: 0 };
 }
 
 function handleTouchMove(e) {
@@ -348,51 +368,56 @@ function handleTouchMove(e) {
         
         scheduleUpdate();
     } else if (isResizing) {
-        const el = document.getElementById(`${selectedElement}-el`);
-        const rect = el.getBoundingClientRect();
         const containerRect = canvasContainer.getBoundingClientRect();
         const scrollX = canvasContainer.scrollLeft || 0;
         const scrollY = canvasContainer.scrollTop || 0;
-        
-        let newWidth, newHeight;
-        
+
+        const touchX = touch.clientX - containerRect.left + scrollX;
+        const touchY = touch.clientY - containerRect.top + scrollY;
+
+        let newWidth = resizeStartData.width;
+        let newHeight = resizeStartData.height;
+
         if (resizeHandle.includes('e')) {
-            newWidth = (touch.clientX - containerRect.left + scrollX - rect.left) / currentZoom;
+            newWidth = resizeStartData.width + (touchX - resizeStartData.mouseX);
         }
         if (resizeHandle.includes('w')) {
-            newWidth = (rect.right - (touch.clientX - containerRect.left + scrollX)) / currentZoom;
-            elements[selectedElement].x += (rect.width - newWidth) / (renderScale * currentZoom);
+            const deltaX = resizeStartData.mouseX - touchX;
+            newWidth = resizeStartData.width + deltaX;
+            elements[selectedElement].x = resizeStartData.x - (deltaX / renderScale / currentZoom);
         }
         if (resizeHandle.includes('s')) {
-            newHeight = (touch.clientY - containerRect.top + scrollY - rect.top) / currentZoom;
+            newHeight = resizeStartData.height + (touchY - resizeStartData.mouseY);
         }
         if (resizeHandle.includes('n')) {
-            newHeight = (rect.bottom - (touch.clientY - containerRect.top + scrollY)) / currentZoom;
-            elements[selectedElement].y += (rect.height - newHeight) / (renderScale * currentZoom);
+            const deltaY = resizeStartData.mouseY - touchY;
+            newHeight = resizeStartData.height + deltaY;
+            elements[selectedElement].y = resizeStartData.y - (deltaY / renderScale / currentZoom);
         }
-        
-        if (newWidth && newHeight) {
-            if (selectedElement === 'qr') {
-                const scale = newWidth / elements.qr.width;
+
+        newWidth = Math.max(10, newWidth);
+        newHeight = Math.max(10, newHeight);
+
+        if (selectedElement === 'qr') {
+            const scale = newWidth / (elements.qr.width * renderScale * currentZoom);
+            const clampedScale = Math.max(0.01, Math.min(3.0, scale));
+            elements.qr.scale = clampedScale;
+            const scaleInput = document.getElementById('qr-scale');
+            const scaleVal = document.getElementById('qr-scale-val');
+            if (scaleInput) scaleInput.value = clampedScale;
+            if (scaleVal) scaleVal.textContent = clampedScale.toFixed(2);
+            scheduleUpdate();
+        } else {
+            const imgWidth = elements[selectedElement].imgWidth;
+            if (imgWidth) {
+                const scale = newWidth / (imgWidth * renderScale * currentZoom);
                 const clampedScale = Math.max(0.01, Math.min(3.0, scale));
-                elements.qr.scale = clampedScale;
-                const scaleInput = document.getElementById('qr-scale');
-                const scaleVal = document.getElementById('qr-scale-val');
+                elements[selectedElement].scale = clampedScale;
+                const scaleInput = document.getElementById(`${selectedElement}-scale`);
+                const scaleVal = document.getElementById(`${selectedElement}-scale-val`);
                 if (scaleInput) scaleInput.value = clampedScale;
                 if (scaleVal) scaleVal.textContent = clampedScale.toFixed(2);
                 scheduleUpdate();
-            } else {
-                const imgWidth = elements[selectedElement].imgWidth;
-                if (imgWidth) {
-                    const scale = newWidth / imgWidth;
-                    const clampedScale = Math.max(0.01, Math.min(3.0, scale));
-                    elements[selectedElement].scale = clampedScale;
-                    const scaleInput = document.getElementById(`${selectedElement}-scale`);
-                    const scaleVal = document.getElementById(`${selectedElement}-scale-val`);
-                    if (scaleInput) scaleInput.value = clampedScale;
-                    if (scaleVal) scaleVal.textContent = clampedScale.toFixed(2);
-                    scheduleUpdate();
-                }
             }
         }
     }
@@ -402,6 +427,7 @@ function handleTouchEnd() {
     isDragging = false;
     isResizing = false;
     resizeHandle = null;
+    resizeStartData = { width: 0, height: 0, mouseX: 0, mouseY: 0, x: 0, y: 0 };
 }
 
 function selectElement(type) {
