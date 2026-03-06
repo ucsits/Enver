@@ -440,3 +440,38 @@ input:focus-visible,
     outline: 2px solid #3498db;
     outline-offset: 2px;
 }
+
+@media print {
+    body {
+        background: white;
+    }
+
+    .container {
+        max-width: none;
+        padding: 0;
+    }
+
+    header {
+        box-shadow: none;
+        border-bottom: 1px solid #ccc;
+    }
+
+    .preview-panel {
+        box-shadow: none;
+        border: 1px solid #ccc;
+    }
+
+    .controls-panel,
+    .toolbar,
+    .page-selector,
+    #progress,
+    #result,
+    #error {
+        display: none !important;
+    }
+
+    .canvas-container {
+        max-height: none;
+        overflow: visible;
+    }
+}

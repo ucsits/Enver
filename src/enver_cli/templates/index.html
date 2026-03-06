@@ -141,19 +141,22 @@
 
                 <div class="section">
                     <h3>Signing</h3>
-                    <div class="form-row">
-                        <label for="private-key">Private Key:</label>
-                        <input type="password" id="private-key" placeholder="0x...">
-                    </div>
-                    <div class="form-row">
-                        <label for="organization">Organization:</label>
-                        <input type="text" id="organization" value="-">
-                    </div>
-                    <div class="form-row">
-                        <label for="rpc-url">RPC URL:</label>
-                        <input type="text" id="rpc-url" value="https://eth.drpc.org">
-                    </div>
-                    <button id="sign-btn" class="primary">Sign Document</button>
+                    <form id="sign-form">
+                        <input type="hidden" id="csrf-token" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="form-row">
+                            <label for="private-key">Private Key:</label>
+                            <input type="password" id="private-key" placeholder="0x...">
+                        </div>
+                        <div class="form-row">
+                            <label for="organization">Organization:</label>
+                            <input type="text" id="organization" value="-">
+                        </div>
+                        <div class="form-row">
+                            <label for="rpc-url">RPC URL:</label>
+                            <input type="text" id="rpc-url" value="https://eth.drpc.org">
+                        </div>
+                        <button type="submit" id="sign-btn" class="primary">Sign Document</button>
+                    </form>
                 </div>
 
                 <div id="progress" class="hidden">

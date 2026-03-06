@@ -20,7 +20,8 @@ import PIL
 from PIL import Image, ImageDraw
 from qrcode.image.pil import PilImage
 import web3.eth
-from flask import Flask, render_template, request, jsonify, send_file, url_for
+from flask import Flask, render_template, request, jsonify, send_file, url_for, session
+import secrets
 import pypdfium2 as pdfium
 from werkzeug.utils import secure_filename
 
@@ -428,6 +429,13 @@ def create_app():
     app.config["TEMP_DIR"] = Path(tempfile.gettempdir()) / "enver_ui"
     app.config["TEMP_DIR"].mkdir(parents=True, exist_ok=True)
 
+    def generate_csrf_token():
+        if "csrf_token" not in session:
+            session["csrf_token"] = secrets.token_hex(32)
+        return session["csrf_token"]
+
+    app.jinja_env.globals["csrf_token"] = generate_csrf_token
+
     @app.route("/")
     def index():
         return render_template("index.html")
@@ -435,6 +443,11 @@ def create_app():
     @app.route("/sign", methods=["POST"])
     def sign_pdf():
         try:
+            csrf_token = session.get("csrf_token")
+            submitted_token = request.form.get("csrf_token")
+            if not csrf_token or csrf_token != submitted_token:
+                return jsonify({"error": "Invalid CSRF token"}), 403
+
             pdf_file = request.files.get("pdf")
             signature_file = request.files.get("signature")
             stamp_file = request.files.get("stamp")

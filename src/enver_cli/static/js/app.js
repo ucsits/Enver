@@ -599,7 +599,8 @@ function setupZoom() {
 }
 
 function setupSigning() {
-    document.getElementById('sign-btn').addEventListener('click', async () => {
+    document.getElementById('sign-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
         const pdfInput = document.getElementById('pdf-input');
         const sigInput = document.getElementById('signature-input');
         const stampInput = document.getElementById('stamp-input');
@@ -618,6 +619,7 @@ function setupSigning() {
         const formData = new FormData();
         formData.append('pdf', pdfInput.files[0]);
         formData.append('signature', sigInput.files[0]);
+        formData.append('csrf_token', document.getElementById('csrf-token').value);
         
         if (stampInput.files[0]) {
             formData.append('stamp', stampInput.files[0]);
