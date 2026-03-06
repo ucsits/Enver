@@ -152,6 +152,19 @@ function loadImage(file, type) {
             el.classList.remove('loading');
             elements[type].imgWidth = img.width;
             elements[type].imgHeight = img.height;
+            
+            if (pdfPageWidth && pdfPageHeight) {
+                const maxScaleX = pdfPageWidth / img.width;
+                const maxScaleY = pdfPageHeight / img.height;
+                const optimalScale = Math.min(maxScaleX, maxScaleY, 1.0);
+                elements[type].scale = Math.max(0.01, Math.min(3.0, optimalScale));
+                
+                const scaleInput = document.getElementById(`${type}-scale`);
+                const scaleVal = document.getElementById(`${type}-scale-val`);
+                if (scaleInput) scaleInput.value = elements[type].scale;
+                if (scaleVal) scaleVal.textContent = elements[type].scale.toFixed(2);
+            }
+            
             const w = img.width * elements[type].scale;
             const h = img.height * elements[type].scale;
             el.style.width = w + 'px';
