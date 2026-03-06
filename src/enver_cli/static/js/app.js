@@ -22,6 +22,7 @@ let renderScale = 1.5;
 let pdfPageWidth = 0;
 let pdfPageHeight = 0;
 let renderVersion = 0;
+let pendingUpdate = false;
 
 const canvas = document.getElementById('pdf-canvas');
 const ctx = canvas.getContext('2d');
@@ -249,8 +250,7 @@ function handleMouseMove(e) {
         elements[selectedElement].x = x;
         elements[selectedElement].y = y;
         
-        updateElementPositions();
-        updateControlValues();
+        scheduleUpdate();
     } else if (isResizing) {
         const el = document.getElementById(`${selectedElement}-el`);
         const rect = el.getBoundingClientRect();
@@ -284,8 +284,7 @@ function handleMouseMove(e) {
                 const scaleVal = document.getElementById('qr-scale-val');
                 if (scaleInput) scaleInput.value = clampedScale;
                 if (scaleVal) scaleVal.textContent = clampedScale.toFixed(1);
-                updateElementPositions();
-                updateControlValues();
+                scheduleUpdate();
             } else {
                 const imgWidth = elements[selectedElement].imgWidth;
                 if (imgWidth) {
@@ -296,12 +295,21 @@ function handleMouseMove(e) {
                     const scaleVal = document.getElementById(`${selectedElement}-scale-val`);
                     if (scaleInput) scaleInput.value = clampedScale;
                     if (scaleVal) scaleVal.textContent = clampedScale.toFixed(1);
-                    updateElementPositions();
-                    updateControlValues();
+                    scheduleUpdate();
                 }
             }
         }
     }
+}
+
+function scheduleUpdate() {
+    if (pendingUpdate) return;
+    pendingUpdate = true;
+    requestAnimationFrame(() => {
+        updateElementPositions();
+        updateControlValues();
+        pendingUpdate = false;
+    });
 }
 
 function handleMouseUp() {
@@ -338,8 +346,7 @@ function handleTouchMove(e) {
         elements[selectedElement].x = x;
         elements[selectedElement].y = y;
         
-        updateElementPositions();
-        updateControlValues();
+        scheduleUpdate();
     } else if (isResizing) {
         const el = document.getElementById(`${selectedElement}-el`);
         const rect = el.getBoundingClientRect();
@@ -373,8 +380,7 @@ function handleTouchMove(e) {
                 const scaleVal = document.getElementById('qr-scale-val');
                 if (scaleInput) scaleInput.value = clampedScale;
                 if (scaleVal) scaleVal.textContent = clampedScale.toFixed(1);
-                updateElementPositions();
-                updateControlValues();
+                scheduleUpdate();
             } else {
                 const imgWidth = elements[selectedElement].imgWidth;
                 if (imgWidth) {
@@ -385,8 +391,7 @@ function handleTouchMove(e) {
                     const scaleVal = document.getElementById(`${selectedElement}-scale-val`);
                     if (scaleInput) scaleInput.value = clampedScale;
                     if (scaleVal) scaleVal.textContent = clampedScale.toFixed(1);
-                    updateElementPositions();
-                    updateControlValues();
+                    scheduleUpdate();
                 }
             }
         }
