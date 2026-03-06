@@ -445,6 +445,16 @@ def create_app():
             if not all([pdf_file, signature_file, private_key]):
                 return jsonify({"error": "Missing required fields"}), 400
 
+            if pdf_file.content_type != "application/pdf":
+                return jsonify({"error": "Invalid PDF file type"}), 400
+
+            if not signature_file.content_type.startswith("image/"):
+                return jsonify({"error": "Invalid signature image type"}), 400
+
+            if stamp_file and stamp_file.filename:
+                if not stamp_file.content_type.startswith("image/"):
+                    return jsonify({"error": "Invalid stamp image type"}), 400
+
             pdf_path = app.config["TEMP_DIR"] / secure_filename(pdf_file.filename)
             sig_path = app.config["TEMP_DIR"] / secure_filename(signature_file.filename)
 
