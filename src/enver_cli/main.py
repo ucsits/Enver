@@ -65,7 +65,7 @@ def to_eth_signed_message(message: str, account: web3.Account) -> bytes:
     return signature_bytes, signature_message
 
 
-def draw_snake(can, ori_cid_v1, account, timestamp, organization, sig_height, x, y):
+def draw_snake(can, ori_cid_v1, account, timestamp, organization, qr_x, qr_y):
     can.saveState()
     can.setFillAlpha(0.35)
     can.setStrokeAlpha(0.35)
@@ -77,8 +77,6 @@ def draw_snake(can, ori_cid_v1, account, timestamp, organization, sig_height, x,
         f"{organization} | "
         "Verify on Ethereum "
     )
-    qr_x = x + 16
-    qr_y = y + sig_height / 4
     qr_size = 64
     margin = 2  # distance from QR code
     corner_radius = 3
@@ -218,6 +216,9 @@ def sign_document(
     organization,
     stamp_path,
     rpc_url,
+    qr_x=None,
+    qr_y=None,
+    qr_rotation=None,
 ):
     """Core signing logic used by both CLI and web UI."""
     timestamp = math.floor(time.time() * 1000)
@@ -290,16 +291,19 @@ def sign_document(
     qr_img = ImageReader(tmp_qr_file.name)
 
     can.saveState()
-    can.rotate(5)
-    can.translate(20, -35)
+    can.rotate(qr_rotation if qr_rotation is not None else 5)
     can.setFillAlpha(0.1)
     can.setStrokeAlpha(0.1)
-    qr_x = x + 16
-    qr_y = backend_y + sig_height / 4
-    can.drawImage(qr_img, qr_x, qr_y, width=64, height=64, mask="auto")
+    if qr_x is not None and qr_y is not None:
+        final_qr_x = qr_x
+        final_qr_y = page_height - qr_y - 64
+    else:
+        final_qr_x = x + 16
+        final_qr_y = backend_y + sig_height / 4
+    can.drawImage(qr_img, final_qr_x, final_qr_y, width=64, height=64, mask="auto")
 
     draw_snake(
-        can, ori_cid_v1, account, timestamp, organization, sig_height, x, backend_y
+        can, ori_cid_v1, account, timestamp, organization, final_qr_x, final_qr_y
     )
     can.restoreState()
 
@@ -308,8 +312,8 @@ def sign_document(
         can.setFillAlpha(0.35)
         stamp_width = 64
         stamp_height = 64
-        stampX = qr_x - stamp_width / 4
-        stampY = qr_y + 10
+        stampX = final_qr_x - stamp_width / 4
+        stampY = final_qr_y + 10
         can.drawImage(
             stampImg,
             stampX,
