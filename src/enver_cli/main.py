@@ -65,7 +65,7 @@ def to_eth_signed_message(message: str, account: web3.Account) -> bytes:
     return signature_bytes, signature_message
 
 
-def draw_snake(can, ori_cid_v1, account, timestamp, organization, qr_x, qr_y):
+def draw_snake(can, ori_cid_v1, account, timestamp, organization, qr_x, qr_y, qr_size):
     can.saveState()
     can.setFillAlpha(0.35)
     can.setStrokeAlpha(0.35)
@@ -77,7 +77,6 @@ def draw_snake(can, ori_cid_v1, account, timestamp, organization, qr_x, qr_y):
         f"{organization} | "
         "Verify on Ethereum "
     )
-    qr_size = 64
     margin = 2  # distance from QR code
     corner_radius = 3
 
@@ -310,7 +309,14 @@ def sign_document(
     )
 
     draw_snake(
-        can, ori_cid_v1, account, timestamp, organization, final_qr_x, final_qr_y
+        can,
+        ori_cid_v1,
+        account,
+        timestamp,
+        organization,
+        -qr_size / 2,
+        -qr_size / 2,
+        qr_size,
     )
     can.restoreState()
 
