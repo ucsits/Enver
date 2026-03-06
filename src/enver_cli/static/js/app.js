@@ -18,6 +18,9 @@ let pdfDoc = null;
 let currentPage = 1;
 let pageCount = 0;
 let canvasScale = 1.0;
+let renderScale = 1.5;
+let pdfPageWidth = 0;
+let pdfPageHeight = 0;
 
 const canvas = document.getElementById('pdf-canvas');
 const ctx = canvas.getContext('2d');
@@ -96,14 +99,16 @@ async function renderPage(pageNum) {
 
     try {
         const page = await pdfDoc.getPage(pageNum);
-        const viewport = page.getViewport({ scale: 1.5 });
+        const viewport = page.getViewport({ scale: renderScale });
         
         canvas.width = viewport.width;
         canvas.height = viewport.height;
         canvas.style.width = viewport.width + 'px';
         canvas.style.height = viewport.height + 'px';
         
-        canvasScale = viewport.width / page.view[2];
+        pdfPageWidth = page.view[2];
+        pdfPageHeight = page.view[3];
+        canvasScale = viewport.width / pdfPageWidth;
         
         await page.render({
             canvasContext: ctx,
@@ -172,9 +177,14 @@ function startDrag(e, type) {
     const el = document.getElementById(`${type}-el`);
     const rect = el.getBoundingClientRect();
     const containerRect = canvasContainer.getBoundingClientRect();
+    const scrollX = canvasContainer.scrollLeft || 0;
+    const scrollY = canvasContainer.scrollTop || 0;
     
-    dragOffset.x = e.clientX - rect.left;
-    dragOffset.y = e.clientY - rect.top;
+    const canvasX = e.clientX - containerRect.left + scrollX;
+    const canvasY = e.clientY - containerRect.top + scrollY;
+    
+    dragOffset.x = (canvasX / currentZoom) - elements[type].x * renderScale;
+    dragOffset.y = (canvasY / currentZoom) - elements[type].y * renderScale;
 }
 
 function startResize(e, type) {
@@ -191,50 +201,63 @@ function handleMouseMove(e) {
 
     if (isDragging) {
         const containerRect = canvasContainer.getBoundingClientRect();
-        let x = (e.clientX - containerRect.left - dragOffset.x) / currentZoom;
-        let y = (e.clientY - containerRect.top - dragOffset.y) / currentZoom;
+        const scrollX = canvasContainer.scrollLeft || 0;
+        const scrollY = canvasContainer.scrollTop || 0;
+        const canvasX = e.clientX - containerRect.left + scrollX;
+        const canvasY = e.clientY - containerRect.top + scrollY;
+        const displayX = canvasX / currentZoom;
+        const displayY = canvasY / currentZoom;
+        let x = displayX - dragOffset.x;
+        let y = displayY - dragOffset.y;
         
         if (gridSnap) {
             x = Math.round(x / 10) * 10;
             y = Math.round(y / 10) * 10;
         }
         
-        elements[selectedElement].x = Math.max(0, x);
-        elements[selectedElement].y = Math.max(0, y);
+        x = Math.max(0, Math.min(x, pdfPageWidth));
+        y = Math.max(0, Math.min(y, pdfPageHeight));
+        
+        elements[selectedElement].x = x;
+        elements[selectedElement].y = y;
         
         updateElementPositions();
         updateControlValues();
     } else if (isResizing && selectedElement !== 'qr') {
         const el = document.getElementById(`${selectedElement}-el`);
         const rect = el.getBoundingClientRect();
+        const containerRect = canvasContainer.getBoundingClientRect();
+        const scrollX = canvasContainer.scrollLeft || 0;
+        const scrollY = canvasContainer.scrollTop || 0;
         
         let newWidth, newHeight;
         
         if (resizeHandle.includes('e')) {
-            newWidth = (e.clientX - rect.left) / currentZoom;
+            newWidth = (e.clientX - containerRect.left + scrollX - rect.left) / currentZoom;
         }
         if (resizeHandle.includes('w')) {
-            newWidth = (rect.right - e.clientX) / currentZoom;
-            elements[selectedElement].x += (rect.width - newWidth);
+            newWidth = (rect.right - (e.clientX - containerRect.left + scrollX)) / currentZoom;
+            elements[selectedElement].x += (rect.width - newWidth) / (renderScale * currentZoom);
         }
         if (resizeHandle.includes('s')) {
-            newHeight = (e.clientY - rect.top) / currentZoom;
+            newHeight = (e.clientY - containerRect.top + scrollY - rect.top) / currentZoom;
         }
         if (resizeHandle.includes('n')) {
-            newHeight = (rect.bottom - e.clientY) / currentZoom;
-            elements[selectedElement].y += (rect.height - newHeight);
+            newHeight = (rect.bottom - (e.clientY - containerRect.top + scrollY)) / currentZoom;
+            elements[selectedElement].y += (rect.height - newHeight) / (renderScale * currentZoom);
         }
         
         if (newWidth && newHeight) {
-            const originalAspect = el.offsetHeight / el.offsetWidth;
-            newHeight = newWidth * originalAspect;
-            
             const originalImage = elements[selectedElement].image;
             if (originalImage) {
                 const img = new Image();
                 img.onload = () => {
                     const scale = newWidth / img.width;
                     elements[selectedElement].scale = scale;
+                    const scaleInput = document.getElementById(`${selectedElement}-scale`);
+                    const scaleVal = document.getElementById(`${selectedElement}-scale-val`);
+                    if (scaleInput) scaleInput.value = scale;
+                    if (scaleVal) scaleVal.textContent = scale.toFixed(1);
                     updateElementPositions();
                     updateControlValues();
                 };
@@ -268,20 +291,23 @@ function updateElementPositions() {
         
         el.style.display = 'block';
         
+        const canvasX = data.x * renderScale * currentZoom;
+        const canvasY = data.y * renderScale * currentZoom;
+        
         if (type === 'qr') {
-            el.style.left = (data.x * currentZoom) + 'px';
-            el.style.top = (data.y * currentZoom) + 'px';
-            el.style.width = (data.width * currentZoom) + 'px';
-            el.style.height = (data.height * currentZoom) + 'px';
+            el.style.left = canvasX + 'px';
+            el.style.top = canvasY + 'px';
+            el.style.width = (data.width * renderScale * currentZoom) + 'px';
+            el.style.height = (data.height * renderScale * currentZoom) + 'px';
         } else {
-            el.style.left = (data.x * currentZoom) + 'px';
-            el.style.top = (data.y * currentZoom) + 'px';
+            el.style.left = canvasX + 'px';
+            el.style.top = canvasY + 'px';
             
-            if (data.image && type !== 'qr') {
+            if (data.image) {
                 const img = new Image();
                 img.onload = () => {
-                    const w = img.width * data.scale * currentZoom;
-                    const h = img.height * data.scale * currentZoom;
+                    const w = img.width * data.scale * renderScale * currentZoom;
+                    const h = img.height * data.scale * renderScale * currentZoom;
                     el.style.width = w + 'px';
                     el.style.height = h + 'px';
                 };
@@ -306,9 +332,9 @@ function setupControls() {
         }
     });
 
-    document.getElementById('sig-scale').addEventListener('input', (e) => {
+    document.getElementById('signature-scale').addEventListener('input', (e) => {
         elements.signature.scale = parseFloat(e.target.value);
-        document.getElementById('sig-scale-val').textContent = e.target.value;
+        document.getElementById('signature-scale-val').textContent = parseFloat(e.target.value).toFixed(1);
         updateElementPositions();
     });
 
@@ -328,7 +354,7 @@ function setupControls() {
 
     document.getElementById('stamp-scale').addEventListener('input', (e) => {
         elements.stamp.scale = parseFloat(e.target.value);
-        document.getElementById('stamp-scale-val').textContent = e.target.value;
+        document.getElementById('stamp-scale-val').textContent = parseFloat(e.target.value).toFixed(1);
         updateElementPositions();
     });
 
