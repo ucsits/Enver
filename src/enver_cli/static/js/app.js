@@ -319,17 +319,13 @@ function updateElementPositions() {
 
 function setupControls() {
     document.getElementById('sig-x').addEventListener('input', (e) => {
-        if (selectedElement === 'signature') {
-            elements.signature.x = parseFloat(e.target.value) || 0;
-            updateElementPositions();
-        }
+        elements.signature.x = parseFloat(e.target.value) || 0;
+        updateElementPositions();
     });
 
     document.getElementById('sig-y').addEventListener('input', (e) => {
-        if (selectedElement === 'signature') {
-            elements.signature.y = parseFloat(e.target.value) || 0;
-            updateElementPositions();
-        }
+        elements.signature.y = parseFloat(e.target.value) || 0;
+        updateElementPositions();
     });
 
     document.getElementById('signature-scale').addEventListener('input', (e) => {
@@ -339,17 +335,13 @@ function setupControls() {
     });
 
     document.getElementById('stamp-x').addEventListener('input', (e) => {
-        if (selectedElement === 'stamp') {
-            elements.stamp.x = parseFloat(e.target.value) || 0;
-            updateElementPositions();
-        }
+        elements.stamp.x = parseFloat(e.target.value) || 0;
+        updateElementPositions();
     });
 
     document.getElementById('stamp-y').addEventListener('input', (e) => {
-        if (selectedElement === 'stamp') {
-            elements.stamp.y = parseFloat(e.target.value) || 0;
-            updateElementPositions();
-        }
+        elements.stamp.y = parseFloat(e.target.value) || 0;
+        updateElementPositions();
     });
 
     document.getElementById('stamp-scale').addEventListener('input', (e) => {
