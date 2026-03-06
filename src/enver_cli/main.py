@@ -516,6 +516,11 @@ def create_app():
 
             signed_filename = os.path.basename(result["signed_path"])
 
+            os.unlink(pdf_path)
+            os.unlink(sig_path)
+            if stamp_path:
+                os.unlink(stamp_path)
+
             return jsonify(
                 {
                     "success": True,
