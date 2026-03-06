@@ -242,6 +242,9 @@ def sign_document(
     sig_width *= scale
     sig_height *= scale
 
+    # Convert from frontend top-left origin to PDF bottom-left origin
+    backend_y = page_height - y - sig_height
+
     stampImg = ImageReader(stamp_path) if stamp_path else None
 
     with open(path_to_document, "rb") as f:
@@ -291,10 +294,12 @@ def sign_document(
     can.setFillAlpha(0.1)
     can.setStrokeAlpha(0.1)
     qr_x = x + 16
-    qr_y = y + sig_height / 4
+    qr_y = backend_y + sig_height / 4
     can.drawImage(qr_img, qr_x, qr_y, width=64, height=64, mask="auto")
 
-    draw_snake(can, ori_cid_v1, account, timestamp, organization, sig_height, x, y)
+    draw_snake(
+        can, ori_cid_v1, account, timestamp, organization, sig_height, x, backend_y
+    )
     can.restoreState()
 
     if stampImg:
@@ -314,7 +319,7 @@ def sign_document(
         )
         can.restoreState()
 
-    can.drawImage(sigImg, x, y, width=sig_width, height=sig_height, mask="auto")
+    can.drawImage(sigImg, x, backend_y, width=sig_width, height=sig_height, mask="auto")
     can.save()
     packet.seek(0)
     tmp_qr_file.close()
