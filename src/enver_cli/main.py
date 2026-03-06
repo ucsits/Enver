@@ -427,49 +427,6 @@ def create_app():
     def index():
         return render_template("index.html")
 
-    @app.route("/render-page", methods=["POST"])
-    def render_page():
-        try:
-            pdf_file = request.files.get("pdf")
-            page_number = int(request.form.get("page_number", 1))
-
-            if not pdf_file:
-                return jsonify({"error": "No PDF file provided"}), 400
-
-            pdf_path = app.config["TEMP_DIR"] / secure_filename(pdf_file.filename)
-            pdf_file.save(pdf_path)
-
-            pdf = pdfium.PdfDocument(str(pdf_path))
-
-            if page_number < 1 or page_number > len(pdf):
-                return jsonify({"error": "Invalid page number"}), 400
-
-            page = pdf[page_number - 1]
-            bitmap = page.render(scale=2, rotation=0)
-            pil_image = bitmap.to_pil()
-
-            img_byte_arr = io.BytesIO()
-            pil_image.save(img_byte_arr, format="PNG")
-            img_byte_arr.seek(0)
-            img_base64 = base64.b64encode(img_byte_arr.read()).decode("utf-8")
-
-            width, height = pil_image.size
-            page_count = len(pdf)
-
-            pdf.close()
-            os.unlink(pdf_path)
-
-            return jsonify(
-                {
-                    "image": f"data:image/png;base64,{img_base64}",
-                    "width": width,
-                    "height": height,
-                    "page_count": page_count,
-                }
-            )
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-
     @app.route("/sign", methods=["POST"])
     def sign_pdf():
         try:
