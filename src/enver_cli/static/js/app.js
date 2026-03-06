@@ -512,6 +512,33 @@ function setupControls() {
             renderPage(pageNum);
         }
     });
+
+    document.getElementById('reset-positions').addEventListener('click', () => {
+        elements.signature.x = 50;
+        elements.signature.y = 50;
+        elements.signature.scale = 1.0;
+        elements.stamp.x = 300;
+        elements.stamp.y = 50;
+        elements.stamp.scale = 1.0;
+        elements.qr.x = 66;
+        elements.qr.y = 62.5;
+        elements.qr.scale = 1.0;
+
+        document.getElementById('sig-x').value = elements.signature.x;
+        document.getElementById('sig-y').value = elements.signature.y;
+        document.getElementById('signature-scale').value = elements.signature.scale;
+        document.getElementById('signature-scale-val').textContent = elements.signature.scale.toFixed(1);
+        document.getElementById('stamp-x').value = elements.stamp.x;
+        document.getElementById('stamp-y').value = elements.stamp.y;
+        document.getElementById('stamp-scale').value = elements.stamp.scale;
+        document.getElementById('stamp-scale-val').textContent = elements.stamp.scale.toFixed(1);
+        document.getElementById('qr-x').value = elements.qr.x;
+        document.getElementById('qr-y').value = elements.qr.y;
+        document.getElementById('qr-scale').value = elements.qr.scale;
+        document.getElementById('qr-scale-val').textContent = elements.qr.scale.toFixed(1);
+
+        updateElementPositions();
+    });
 }
 
 function updateControlValues() {
