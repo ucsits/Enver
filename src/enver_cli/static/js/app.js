@@ -21,6 +21,7 @@ let canvasScale = 1.0;
 let renderScale = 1.5;
 let pdfPageWidth = 0;
 let pdfPageHeight = 0;
+let renderVersion = 0;
 
 const canvas = document.getElementById('pdf-canvas');
 const ctx = canvas.getContext('2d');
@@ -97,6 +98,8 @@ async function loadPDF(file) {
 async function renderPage(pageNum) {
     if (!pdfDoc) return;
 
+    const currentRenderVersion = ++renderVersion;
+
     try {
         const page = await pdfDoc.getPage(pageNum);
         const viewport = page.getViewport({ scale: renderScale });
@@ -115,12 +118,16 @@ async function renderPage(pageNum) {
             viewport: viewport
         }).promise;
 
+        if (currentRenderVersion !== renderVersion) return;
+
         elementsLayer.style.width = viewport.width + 'px';
         elementsLayer.style.height = viewport.height + 'px';
         
         updateElementPositions();
     } catch (err) {
-        showError('Failed to render page: ' + err.message);
+        if (currentRenderVersion === renderVersion) {
+            showError('Failed to render page: ' + err.message);
+        }
     }
 }
 
@@ -434,12 +441,16 @@ function updateElementPositions() {
 
 function setupControls() {
     document.getElementById('sig-x').addEventListener('input', (e) => {
-        elements.signature.x = parseFloat(e.target.value) || 0;
+        let val = parseFloat(e.target.value) || 0;
+        val = Math.max(0, Math.min(val, pdfPageWidth || 1000));
+        elements.signature.x = val;
         updateElementPositions();
     });
 
     document.getElementById('sig-y').addEventListener('input', (e) => {
-        elements.signature.y = parseFloat(e.target.value) || 0;
+        let val = parseFloat(e.target.value) || 0;
+        val = Math.max(0, Math.min(val, pdfPageHeight || 1000));
+        elements.signature.y = val;
         updateElementPositions();
     });
 
@@ -452,12 +463,16 @@ function setupControls() {
     });
 
     document.getElementById('stamp-x').addEventListener('input', (e) => {
-        elements.stamp.x = parseFloat(e.target.value) || 0;
+        let val = parseFloat(e.target.value) || 0;
+        val = Math.max(0, Math.min(val, pdfPageWidth || 1000));
+        elements.stamp.x = val;
         updateElementPositions();
     });
 
     document.getElementById('stamp-y').addEventListener('input', (e) => {
-        elements.stamp.y = parseFloat(e.target.value) || 0;
+        let val = parseFloat(e.target.value) || 0;
+        val = Math.max(0, Math.min(val, pdfPageHeight || 1000));
+        elements.stamp.y = val;
         updateElementPositions();
     });
 
@@ -470,12 +485,16 @@ function setupControls() {
     });
 
     document.getElementById('qr-x').addEventListener('input', (e) => {
-        elements.qr.x = parseFloat(e.target.value) || 0;
+        let val = parseFloat(e.target.value) || 0;
+        val = Math.max(0, Math.min(val, pdfPageWidth || 1000));
+        elements.qr.x = val;
         updateElementPositions();
     });
 
     document.getElementById('qr-y').addEventListener('input', (e) => {
-        elements.qr.y = parseFloat(e.target.value) || 0;
+        let val = parseFloat(e.target.value) || 0;
+        val = Math.max(0, Math.min(val, pdfPageHeight || 1000));
+        elements.qr.y = val;
         updateElementPositions();
     });
 
@@ -503,11 +522,20 @@ function setupControls() {
     });
 
     document.getElementById('load-page').addEventListener('click', () => {
-        const pageNum = parseInt(document.getElementById('page-number').value);
+        const pageNumInput = document.getElementById('page-number');
+        const pageNum = parseInt(pageNumInput.value);
         if (pageNum >= 1 && pageNum <= pageCount) {
             currentPage = pageNum;
             renderPage(pageNum);
+            pageNumInput.setCustomValidity('');
+        } else {
+            pageNumInput.setCustomValidity(`Page must be between 1 and ${pageCount}`);
+            pageNumInput.reportValidity();
         }
+    });
+
+    document.getElementById('page-number').addEventListener('input', (e) => {
+        e.target.setCustomValidity('');
     });
 
     document.getElementById('reset-positions').addEventListener('click', () => {
@@ -623,24 +651,31 @@ function setupSigning() {
         signBtn.disabled = true;
 
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000);
+
             const response = await fetch('/sign', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                signal: controller.signal
             });
+
+            clearTimeout(timeoutId);
 
             const data = await response.json();
 
             if (response.ok && data.success) {
                 document.getElementById('download-link').href = data.download_url;
                 result.classList.remove('hidden');
-                
-                const link = document.getElementById('download-link');
-                link.click();
             } else {
                 throw new Error(data.error || 'Signing failed');
             }
         } catch (err) {
-            showError(err.message);
+            if (err.name === 'AbortError') {
+                showError('Request timed out. Please try again.');
+            } else {
+                showError(err.message);
+            }
         } finally {
             progress.classList.add('hidden');
             signBtn.disabled = false;

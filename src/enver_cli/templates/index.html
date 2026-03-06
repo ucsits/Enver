@@ -23,7 +23,7 @@
                     <button id="reset-positions">Reset</button>
                 </div>
                 <div class="canvas-container" id="canvas-container">
-                    <canvas id="pdf-canvas"></canvas>
+                    <canvas id="pdf-canvas" aria-label="PDF document preview"></canvas>
                     <div id="elements-layer">
                         <div class="element signature" id="signature-el" data-type="signature">
                             <div class="resize-handle nw"></div>
@@ -166,7 +166,7 @@
                     <a id="download-link" href="#" class="primary">Download Signed PDF</a>
                 </div>
 
-                <div id="error" class="hidden">
+                <div id="error" class="hidden" aria-live="polite">
                     <p class="error-msg"></p>
                 </div>
             </div>
@@ -174,5 +174,14 @@
     </div>
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <noscript>
+        <style>
+            .container { display: none; }
+        </style>
+        <div style="padding: 20px; text-align: center;">
+            <h2>JavaScript Required</h2>
+            <p>Please enable JavaScript to use the Enver Document Signing application.</p>
+        </div>
+    </noscript>
 </body>
 </html>

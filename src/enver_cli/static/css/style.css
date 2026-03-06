@@ -359,6 +359,18 @@ button.primary:disabled {
     100% { transform: rotate(360deg); }
 }
 
+@media (prefers-reduced-motion: reduce) {
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(0deg); }
+    }
+
+    .spinner {
+        animation: none;
+        border-top-color: #3498db;
+    }
+}
+
 #result, #error {
     padding: 15px;
     border-radius: 4px;
@@ -415,4 +427,16 @@ button.primary:disabled {
     .controls-panel {
         order: 2;
     }
+}
+
+:focus-visible {
+    outline: 2px solid #3498db;
+    outline-offset: 2px;
+}
+
+button:focus-visible,
+input:focus-visible,
+.file-upload:focus-within {
+    outline: 2px solid #3498db;
+    outline-offset: 2px;
 }
