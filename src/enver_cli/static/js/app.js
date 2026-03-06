@@ -176,8 +176,6 @@ function startDrag(e, type) {
     selectElement(type);
     isDragging = true;
     
-    const el = document.getElementById(`${type}-el`);
-    const rect = el.getBoundingClientRect();
     const containerRect = canvasContainer.getBoundingClientRect();
     const scrollX = canvasContainer.scrollLeft || 0;
     const scrollY = canvasContainer.scrollTop || 0;
@@ -185,8 +183,8 @@ function startDrag(e, type) {
     const canvasX = e.clientX - containerRect.left + scrollX;
     const canvasY = e.clientY - containerRect.top + scrollY;
     
-    dragOffset.x = (canvasX / currentZoom) - elements[type].x * renderScale;
-    dragOffset.y = (canvasY / currentZoom) - elements[type].y * renderScale;
+    dragOffset.x = (canvasX / currentZoom / renderScale) - elements[type].x;
+    dragOffset.y = (canvasY / currentZoom / renderScale) - elements[type].y;
 }
 
 function startResize(e, type) {
@@ -207,14 +205,14 @@ function handleMouseMove(e) {
         const scrollY = canvasContainer.scrollTop || 0;
         const canvasX = e.clientX - containerRect.left + scrollX;
         const canvasY = e.clientY - containerRect.top + scrollY;
-        const displayX = canvasX / currentZoom;
-        const displayY = canvasY / currentZoom;
+        const displayX = canvasX / currentZoom / renderScale;
+        const displayY = canvasY / currentZoom / renderScale;
         let x = displayX - dragOffset.x;
         let y = displayY - dragOffset.y;
         
         if (gridSnap) {
-            x = Math.round(x / 10) * 10;
-            y = Math.round(y / 10) * 10;
+            x = Math.round(x / 5) * 5;
+            y = Math.round(y / 5) * 5;
         }
         
         x = Math.max(0, Math.min(x, pdfPageWidth));
