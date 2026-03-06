@@ -464,6 +464,10 @@ def create_app():
             sig_y = float(request.form.get("sig_y", 50))
             sig_scale = float(request.form.get("sig_scale", 1.0))
 
+            qr_x = float(request.form.get("qr_x", 66))
+            qr_y = float(request.form.get("qr_y", 62.5))
+            qr_rotation = float(request.form.get("qr_rotation", 5))
+
             if not all([pdf_file, signature_file, private_key]):
                 return jsonify({"error": "Missing required fields"}), 400
 
@@ -501,6 +505,9 @@ def create_app():
                 organization,
                 str(stamp_path) if stamp_path else None,
                 rpc_url,
+                qr_x,
+                qr_y,
+                qr_rotation,
             )
 
             signed_filename = os.path.basename(result["signed_path"])
