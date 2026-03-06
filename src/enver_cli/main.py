@@ -301,7 +301,7 @@ def sign_document(
     qr_center_y = final_qr_y + qr_size / 2
     can.saveState()
     can.translate(qr_center_x, qr_center_y)
-    can.rotate(qr_rotation if qr_rotation is not None else 5)
+    can.rotate(-(qr_rotation if qr_rotation is not None else 5))
     can.setFillAlpha(0.1)
     can.setStrokeAlpha(0.1)
     can.drawImage(
