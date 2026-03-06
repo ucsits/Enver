@@ -278,23 +278,23 @@ function handleMouseMove(e) {
         if (newWidth && newHeight) {
             if (selectedElement === 'qr') {
                 const scale = newWidth / elements.qr.width;
-                const clampedScale = Math.max(0.1, Math.min(3.0, scale));
+                const clampedScale = Math.max(0.01, Math.min(3.0, scale));
                 elements.qr.scale = clampedScale;
                 const scaleInput = document.getElementById('qr-scale');
                 const scaleVal = document.getElementById('qr-scale-val');
                 if (scaleInput) scaleInput.value = clampedScale;
-                if (scaleVal) scaleVal.textContent = clampedScale.toFixed(1);
+                if (scaleVal) scaleVal.textContent = clampedScale.toFixed(2);
                 scheduleUpdate();
             } else {
                 const imgWidth = elements[selectedElement].imgWidth;
                 if (imgWidth) {
                     const scale = newWidth / imgWidth;
-                    const clampedScale = Math.max(0.1, Math.min(3.0, scale));
+                    const clampedScale = Math.max(0.01, Math.min(3.0, scale));
                     elements[selectedElement].scale = clampedScale;
                     const scaleInput = document.getElementById(`${selectedElement}-scale`);
                     const scaleVal = document.getElementById(`${selectedElement}-scale-val`);
                     if (scaleInput) scaleInput.value = clampedScale;
-                    if (scaleVal) scaleVal.textContent = clampedScale.toFixed(1);
+                    if (scaleVal) scaleVal.textContent = clampedScale.toFixed(2);
                     scheduleUpdate();
                 }
             }
@@ -374,23 +374,23 @@ function handleTouchMove(e) {
         if (newWidth && newHeight) {
             if (selectedElement === 'qr') {
                 const scale = newWidth / elements.qr.width;
-                const clampedScale = Math.max(0.1, Math.min(3.0, scale));
+                const clampedScale = Math.max(0.01, Math.min(3.0, scale));
                 elements.qr.scale = clampedScale;
                 const scaleInput = document.getElementById('qr-scale');
                 const scaleVal = document.getElementById('qr-scale-val');
                 if (scaleInput) scaleInput.value = clampedScale;
-                if (scaleVal) scaleVal.textContent = clampedScale.toFixed(1);
+                if (scaleVal) scaleVal.textContent = clampedScale.toFixed(2);
                 scheduleUpdate();
             } else {
                 const imgWidth = elements[selectedElement].imgWidth;
                 if (imgWidth) {
                     const scale = newWidth / imgWidth;
-                    const clampedScale = Math.max(0.1, Math.min(3.0, scale));
+                    const clampedScale = Math.max(0.01, Math.min(3.0, scale));
                     elements[selectedElement].scale = clampedScale;
                     const scaleInput = document.getElementById(`${selectedElement}-scale`);
                     const scaleVal = document.getElementById(`${selectedElement}-scale-val`);
                     if (scaleInput) scaleInput.value = clampedScale;
-                    if (scaleVal) scaleVal.textContent = clampedScale.toFixed(1);
+                    if (scaleVal) scaleVal.textContent = clampedScale.toFixed(2);
                     scheduleUpdate();
                 }
             }
@@ -461,7 +461,7 @@ function setupControls() {
 
     document.getElementById('signature-scale').addEventListener('input', (e) => {
         const scale = parseFloat(e.target.value);
-        const clampedScale = Math.max(0.1, Math.min(3.0, scale));
+        const clampedScale = Math.max(0.01, Math.min(3.0, scale));
         elements.signature.scale = clampedScale;
         document.getElementById('signature-scale-val').textContent = clampedScale.toFixed(1);
         updateElementPositions();
@@ -483,7 +483,7 @@ function setupControls() {
 
     document.getElementById('stamp-scale').addEventListener('input', (e) => {
         const scale = parseFloat(e.target.value);
-        const clampedScale = Math.max(0.1, Math.min(3.0, scale));
+        const clampedScale = Math.max(0.01, Math.min(3.0, scale));
         elements.stamp.scale = clampedScale;
         document.getElementById('stamp-scale-val').textContent = clampedScale.toFixed(1);
         updateElementPositions();
@@ -505,7 +505,7 @@ function setupControls() {
 
     document.getElementById('qr-scale').addEventListener('input', (e) => {
         const scale = parseFloat(e.target.value);
-        const clampedScale = Math.max(0.1, Math.min(3.0, scale));
+        const clampedScale = Math.max(0.01, Math.min(3.0, scale));
         elements.qr.scale = clampedScale;
         document.getElementById('qr-scale-val').textContent = clampedScale.toFixed(1);
         updateElementPositions();
