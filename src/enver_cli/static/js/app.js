@@ -137,17 +137,26 @@ function loadImage(file, type) {
         const el = document.getElementById(`${type}-el`);
         el.classList.add('loading');
         el.style.backgroundImage = `url(${e.target.result})`;
-        
+
         const img = new Image();
         img.onload = () => {
             el.classList.remove('loading');
+            elements[type].imgWidth = img.width;
+            elements[type].imgHeight = img.height;
             const w = img.width * elements[type].scale;
             const h = img.height * elements[type].scale;
             el.style.width = w + 'px';
             el.style.height = h + 'px';
             updateElementPositions();
         };
+        img.onerror = () => {
+            el.classList.remove('loading');
+            showError('Failed to load image');
+        };
         img.src = e.target.result;
+    };
+    reader.onerror = () => {
+        showError('Failed to read file');
     };
     reader.readAsDataURL(file);
 }
@@ -271,21 +280,17 @@ function handleMouseMove(e) {
                 updateElementPositions();
                 updateControlValues();
             } else {
-                const originalImage = elements[selectedElement].image;
-                if (originalImage) {
-                    const img = new Image();
-                    img.onload = () => {
-                        const scale = newWidth / img.width;
-                        const clampedScale = Math.max(0.1, Math.min(3.0, scale));
-                        elements[selectedElement].scale = clampedScale;
-                        const scaleInput = document.getElementById(`${selectedElement}-scale`);
-                        const scaleVal = document.getElementById(`${selectedElement}-scale-val`);
-                        if (scaleInput) scaleInput.value = clampedScale;
-                        if (scaleVal) scaleVal.textContent = clampedScale.toFixed(1);
-                        updateElementPositions();
-                        updateControlValues();
-                    };
-                    img.src = originalImage;
+                const imgWidth = elements[selectedElement].imgWidth;
+                if (imgWidth) {
+                    const scale = newWidth / imgWidth;
+                    const clampedScale = Math.max(0.1, Math.min(3.0, scale));
+                    elements[selectedElement].scale = clampedScale;
+                    const scaleInput = document.getElementById(`${selectedElement}-scale`);
+                    const scaleVal = document.getElementById(`${selectedElement}-scale-val`);
+                    if (scaleInput) scaleInput.value = clampedScale;
+                    if (scaleVal) scaleVal.textContent = clampedScale.toFixed(1);
+                    updateElementPositions();
+                    updateControlValues();
                 }
             }
         }
@@ -364,21 +369,17 @@ function handleTouchMove(e) {
                 updateElementPositions();
                 updateControlValues();
             } else {
-                const originalImage = elements[selectedElement].image;
-                if (originalImage) {
-                    const img = new Image();
-                    img.onload = () => {
-                        const scale = newWidth / img.width;
-                        const clampedScale = Math.max(0.1, Math.min(3.0, scale));
-                        elements[selectedElement].scale = clampedScale;
-                        const scaleInput = document.getElementById(`${selectedElement}-scale`);
-                        const scaleVal = document.getElementById(`${selectedElement}-scale-val`);
-                        if (scaleInput) scaleInput.value = clampedScale;
-                        if (scaleVal) scaleVal.textContent = clampedScale.toFixed(1);
-                        updateElementPositions();
-                        updateControlValues();
-                    };
-                    img.src = originalImage;
+                const imgWidth = elements[selectedElement].imgWidth;
+                if (imgWidth) {
+                    const scale = newWidth / imgWidth;
+                    const clampedScale = Math.max(0.1, Math.min(3.0, scale));
+                    elements[selectedElement].scale = clampedScale;
+                    const scaleInput = document.getElementById(`${selectedElement}-scale`);
+                    const scaleVal = document.getElementById(`${selectedElement}-scale-val`);
+                    if (scaleInput) scaleInput.value = clampedScale;
+                    if (scaleVal) scaleVal.textContent = clampedScale.toFixed(1);
+                    updateElementPositions();
+                    updateControlValues();
                 }
             }
         }
@@ -401,17 +402,17 @@ function updateElementPositions() {
     ['signature', 'stamp', 'qr'].forEach(type => {
         const el = document.getElementById(`${type}-el`);
         const data = elements[type];
-        
+
         if (!data.visible) {
             el.style.display = 'none';
             return;
         }
-        
+
         el.style.display = 'block';
-        
+
         const canvasX = data.x * renderScale * currentZoom;
         const canvasY = data.y * renderScale * currentZoom;
-        
+
         if (type === 'qr') {
             el.style.left = canvasX + 'px';
             el.style.top = canvasY + 'px';
@@ -420,16 +421,12 @@ function updateElementPositions() {
         } else {
             el.style.left = canvasX + 'px';
             el.style.top = canvasY + 'px';
-            
-            if (data.image) {
-                const img = new Image();
-                img.onload = () => {
-                    const w = img.width * data.scale * renderScale * currentZoom;
-                    const h = img.height * data.scale * renderScale * currentZoom;
-                    el.style.width = w + 'px';
-                    el.style.height = h + 'px';
-                };
-                img.src = data.image;
+
+            if (data.imgWidth && data.imgHeight) {
+                const w = data.imgWidth * data.scale * renderScale * currentZoom;
+                const h = data.imgHeight * data.scale * renderScale * currentZoom;
+                el.style.width = w + 'px';
+                el.style.height = h + 'px';
             }
         }
     });
