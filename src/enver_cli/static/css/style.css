@@ -106,17 +106,21 @@ header h1 {
 
 .element.selected {
     border-color: #3498db;
+    z-index: 100 !important;
 }
 
 .element.signature {
+    z-index: 30;
     background-color: rgba(52, 152, 219, 0.1);
 }
 
 .element.stamp {
+    z-index: 20;
     background-color: rgba(46, 204, 113, 0.1);
 }
 
 .element.qr-code {
+    z-index: 10;
     background-color: rgba(155, 89, 182, 0.1);
 }
 
