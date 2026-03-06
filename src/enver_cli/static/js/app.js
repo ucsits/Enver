@@ -682,6 +682,7 @@ function setupSigning() {
         formData.append('qr_x', elements.qr.x);
         formData.append('qr_y', elements.qr.y);
         formData.append('qr_rotation', elements.qr.rotation);
+        formData.append('qr_scale', elements.qr.scale);
 
         formData.append('stamp_x', elements.stamp.x);
         formData.append('stamp_y', elements.stamp.y);
