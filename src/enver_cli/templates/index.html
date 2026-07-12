@@ -56,9 +56,19 @@
             <div class="controls-panel">
                 <div class="section">
                     <h3>Document</h3>
+                    <div class="bulk-toggle">
+                        <label class="toggle">
+                            <input type="checkbox" id="bulk-mode">
+                            <span>Bulk Mode (multiple PDFs)</span>
+                        </label>
+                    </div>
                     <div class="file-upload" id="pdf-drop-zone">
                         <input type="file" id="pdf-input" accept=".pdf">
                         <p>Drag PDF here or click to select</p>
+                    </div>
+                    <div class="file-upload hidden" id="pdf-bulk-drop-zone">
+                        <input type="file" id="pdf-bulk-input" accept=".pdf" multiple>
+                        <p>Drag PDFs here or click to select multiple</p>
                     </div>
                 </div>
 
@@ -164,12 +174,22 @@
                     </form>
                 </div>
 
-                <div id="progress" class="hidden">
+                <div id="bulk-results" class="hidden">
+                    <h3>Bulk Signing Results</h3>
+                    <div id="bulk-progress">
+                        <div class="progress-bar"><div class="progress-fill" id="bulk-progress-fill"></div></div>
+                        <p id="bulk-progress-text">Signing 0 of 0...</p>
+                    </div>
+                    <div id="bulk-result-list"></div>
+                    <a id="bulk-download-link" href="#" class="primary hidden">Download All (ZIP)</a>
+                </div>
+
+                <div id="progress" class="hidden single-progress">
                     <div class="spinner"></div>
                     <p>Signing document...</p>
                 </div>
 
-                <div id="result" class="hidden">
+                <div id="result" class="hidden single-progress">
                     <p class="success">Document signed successfully!</p>
                     <a id="download-link" href="#" class="primary">Download Signed PDF</a>
                 </div>

@@ -36,10 +36,12 @@ function init() {
     setupControls();
     setupZoom();
     setupSigning();
+    setupBulkMode();
 }
 
 function setupFileUploads() {
     const pdfInput = document.getElementById('pdf-input');
+    const pdfBulkInput = document.getElementById('pdf-bulk-input');
     const sigInput = document.getElementById('signature-input');
     const stampInput = document.getElementById('stamp-input');
 
@@ -48,6 +50,7 @@ function setupFileUploads() {
     stampInput.addEventListener('change', (e) => loadImage(e.target.files[0], 'stamp'));
 
     setupDropZone('pdf-drop-zone', pdfInput);
+    setupDropZone('pdf-bulk-drop-zone', pdfBulkInput);
     setupDropZone('sig-drop-zone', sigInput);
     setupDropZone('stamp-drop-zone', stampInput);
 }
@@ -659,90 +662,231 @@ function setupZoom() {
 function setupSigning() {
     document.getElementById('sign-form').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const pdfInput = document.getElementById('pdf-input');
-        const sigInput = document.getElementById('signature-input');
-        const stampInput = document.getElementById('stamp-input');
-        const privateKey = document.getElementById('private-key').value;
-        
-        if (!pdfInput.files[0] || !sigInput.files[0]) {
-            showError('Please upload a PDF and signature image');
-            return;
-        }
 
-        if (!privateKey) {
-            showError('Please enter your private key');
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('pdf', pdfInput.files[0]);
-        formData.append('signature', sigInput.files[0]);
-        formData.append('csrf_token', document.getElementById('csrf-token').value);
-        
-        if (stampInput.files[0]) {
-            formData.append('stamp', stampInput.files[0]);
-        }
-        
-        formData.append('private_key', privateKey);
-        formData.append('organization', document.getElementById('organization').value);
-        formData.append('rpc_url', document.getElementById('rpc-url').value);
-        formData.append('page_number', currentPage);
-        
-        formData.append('sig_x', elements.signature.x);
-        formData.append('sig_y', elements.signature.y);
-        formData.append('sig_scale', elements.signature.scale);
-        
-        formData.append('qr_x', elements.qr.x);
-        formData.append('qr_y', elements.qr.y);
-        formData.append('qr_rotation', elements.qr.rotation);
-        formData.append('qr_scale', elements.qr.scale);
-
-        formData.append('stamp_x', elements.stamp.x);
-        formData.append('stamp_y', elements.stamp.y);
-        formData.append('stamp_scale', elements.stamp.scale);
-
-        const progress = document.getElementById('progress');
-        const result = document.getElementById('result');
-        const error = document.getElementById('error');
-        const signBtn = document.getElementById('sign-btn');
-
-        progress.classList.remove('hidden');
-        result.classList.add('hidden');
-        error.classList.add('hidden');
-        error.querySelector('.error-msg').textContent = '';
-        signBtn.disabled = true;
-
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 60000);
-
-            const response = await fetch('/sign', {
-                method: 'POST',
-                body: formData,
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                document.getElementById('download-link').href = data.download_url;
-                result.classList.remove('hidden');
-            } else {
-                throw new Error(data.error || 'Signing failed');
-            }
-        } catch (err) {
-            if (err.name === 'AbortError') {
-                showError('Request timed out. Please try again.');
-            } else {
-                showError(err.message);
-            }
-        } finally {
-            progress.classList.add('hidden');
-            signBtn.disabled = false;
+        if (bulkMode) {
+            await handleBulkSign();
+        } else {
+            await handleSingleSign();
         }
     });
+}
+
+async function handleSingleSign() {
+    const pdfInput = document.getElementById('pdf-input');
+    const sigInput = document.getElementById('signature-input');
+    const stampInput = document.getElementById('stamp-input');
+    const privateKey = document.getElementById('private-key').value;
+    
+    if (!pdfInput.files[0] || !sigInput.files[0]) {
+        showError('Please upload a PDF and signature image');
+        return;
+    }
+
+    if (!privateKey) {
+        showError('Please enter your private key');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('pdf', pdfInput.files[0]);
+    formData.append('signature', sigInput.files[0]);
+    formData.append('csrf_token', document.getElementById('csrf-token').value);
+    
+    if (stampInput.files[0]) {
+        formData.append('stamp', stampInput.files[0]);
+    }
+    
+    formData.append('private_key', privateKey);
+    formData.append('organization', document.getElementById('organization').value);
+    formData.append('rpc_url', document.getElementById('rpc-url').value);
+    formData.append('page_number', currentPage);
+    
+    formData.append('sig_x', elements.signature.x);
+    formData.append('sig_y', elements.signature.y);
+    formData.append('sig_scale', elements.signature.scale);
+    
+    formData.append('qr_x', elements.qr.x);
+    formData.append('qr_y', elements.qr.y);
+    formData.append('qr_rotation', elements.qr.rotation);
+    formData.append('qr_scale', elements.qr.scale);
+
+    formData.append('stamp_x', elements.stamp.x);
+    formData.append('stamp_y', elements.stamp.y);
+    formData.append('stamp_scale', elements.stamp.scale);
+
+    const progress = document.getElementById('progress');
+    const result = document.getElementById('result');
+    const error = document.getElementById('error');
+    const signBtn = document.getElementById('sign-btn');
+
+    progress.classList.remove('hidden');
+    result.classList.add('hidden');
+    error.classList.add('hidden');
+    error.querySelector('.error-msg').textContent = '';
+    signBtn.disabled = true;
+
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+        const response = await fetch('/sign', {
+            method: 'POST',
+            body: formData,
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            document.getElementById('download-link').href = data.download_url;
+            result.classList.remove('hidden');
+        } else {
+            throw new Error(data.error || 'Signing failed');
+        }
+    } catch (err) {
+        if (err.name === 'AbortError') {
+            showError('Request timed out. Please try again.');
+        } else {
+            showError(err.message);
+        }
+    } finally {
+        progress.classList.add('hidden');
+        signBtn.disabled = false;
+    }
+}
+
+async function handleBulkSign() {
+    const pdfBulkInput = document.getElementById('pdf-bulk-input');
+    const sigInput = document.getElementById('signature-input');
+    const stampInput = document.getElementById('stamp-input');
+    const privateKey = document.getElementById('private-key').value;
+
+    const files = pdfBulkInput.files;
+    if (!files || files.length === 0) {
+        showError('Please upload one or more PDF files');
+        return;
+    }
+
+    if (!sigInput.files[0]) {
+        showError('Please upload a signature image');
+        return;
+    }
+
+    if (!privateKey) {
+        showError('Please enter your private key');
+        return;
+    }
+
+    const formData = new FormData();
+    for (const file of files) {
+        formData.append('pdfs', file);
+    }
+    formData.append('signature', sigInput.files[0]);
+    formData.append('csrf_token', document.getElementById('csrf-token').value);
+
+    if (stampInput.files[0]) {
+        formData.append('stamp', stampInput.files[0]);
+    }
+
+    formData.append('private_key', privateKey);
+    formData.append('organization', document.getElementById('organization').value);
+    formData.append('rpc_url', document.getElementById('rpc-url').value);
+    formData.append('page_number', currentPage);
+
+    formData.append('sig_x', elements.signature.x);
+    formData.append('sig_y', elements.signature.y);
+    formData.append('sig_scale', elements.signature.scale);
+
+    formData.append('qr_x', elements.qr.x);
+    formData.append('qr_y', elements.qr.y);
+    formData.append('qr_rotation', elements.qr.rotation);
+    formData.append('qr_scale', elements.qr.scale);
+
+    formData.append('stamp_x', elements.stamp.x);
+    formData.append('stamp_y', elements.stamp.y);
+    formData.append('stamp_scale', elements.stamp.scale);
+
+    const bulkResults = document.getElementById('bulk-results');
+    const bulkProgressFill = document.getElementById('bulk-progress-fill');
+    const bulkProgressText = document.getElementById('bulk-progress-text');
+    const bulkResultList = document.getElementById('bulk-result-list');
+    const bulkDownloadLink = document.getElementById('bulk-download-link');
+    const error = document.getElementById('error');
+    const signBtn = document.getElementById('sign-btn');
+
+    bulkResults.classList.remove('hidden');
+    bulkResultList.innerHTML = '';
+    bulkDownloadLink.classList.add('hidden');
+    bulkProgressFill.style.width = '0%';
+    bulkProgressText.textContent = `Signing ${files.length} file${files.length > 1 ? 's' : ''}...`;
+    error.classList.add('hidden');
+    error.querySelector('.error-msg').textContent = '';
+    signBtn.disabled = true;
+
+    // Simulate incremental progress while server processes
+    let progress = 0;
+    const totalSteps = files.length;
+    const progressInterval = setInterval(() => {
+        if (progress < totalSteps - 1) {
+            progress += 0.05;
+            const pct = Math.min((progress / totalSteps) * 100, 95);
+            bulkProgressFill.style.width = pct + '%';
+            bulkProgressText.textContent = `Signing file ${Math.min(Math.ceil(progress), totalSteps)} of ${totalSteps}...`;
+        }
+    }, 500);
+
+    try {
+        const response = await fetch('/sign-bulk', {
+            method: 'POST',
+            body: formData,
+        });
+
+        clearInterval(progressInterval);
+        bulkProgressFill.style.width = '100%';
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            bulkProgressText.textContent = `Done: ${data.succeeded} succeeded, ${data.failed} failed`;
+
+            // Render result list
+            for (const r of data.results) {
+                const item = document.createElement('div');
+                item.className = 'bulk-result-item success-item';
+                item.innerHTML = `
+                    <span class="file-name">${r.original_name}</span>
+                    <a href="${r.download_url}" class="download-btn">Download</a>
+                `;
+                bulkResultList.appendChild(item);
+            }
+
+            for (const err of data.errors) {
+                const item = document.createElement('div');
+                item.className = 'bulk-result-item error-item';
+                item.innerHTML = `
+                    <span class="file-name">${err.file}</span>
+                    <span class="error-detail">${err.error}</span>
+                `;
+                bulkResultList.appendChild(item);
+            }
+
+            if (data.download_url) {
+                bulkDownloadLink.href = data.download_url;
+                bulkDownloadLink.classList.remove('hidden');
+            }
+        } else {
+            throw new Error(data.error || 'Bulk signing failed');
+        }
+    } catch (err) {
+        clearInterval(progressInterval);
+        bulkProgressFill.style.width = '0%';
+        bulkProgressText.textContent = 'Failed';
+        showError(err.message);
+    } finally {
+        signBtn.disabled = false;
+    }
 }
 
 function showError(message) {
@@ -753,6 +897,38 @@ function showError(message) {
 
 function hideError() {
     document.getElementById('error').classList.add('hidden');
+}
+
+let bulkMode = false;
+
+function setupBulkMode() {
+    const toggle = document.getElementById('bulk-mode');
+    const singleZone = document.getElementById('pdf-drop-zone');
+    const bulkZone = document.getElementById('pdf-bulk-drop-zone');
+
+    toggle.addEventListener('change', () => {
+        bulkMode = toggle.checked;
+        if (bulkMode) {
+            singleZone.classList.add('hidden');
+            bulkZone.classList.remove('hidden');
+            // Hide single-file progress/result
+            document.querySelectorAll('.single-progress').forEach(el => el.classList.add('hidden'));
+        } else {
+            singleZone.classList.remove('hidden');
+            bulkZone.classList.add('hidden');
+            document.getElementById('bulk-results').classList.add('hidden');
+        }
+    });
+
+    document.getElementById('pdf-bulk-input').addEventListener('change', (e) => {
+        const files = e.target.files;
+        if (files.length > 0) {
+            const count = files.length;
+            bulkZone.querySelector('p').textContent = `${count} PDF${count > 1 ? 's' : ''} selected`;
+            // Load the first PDF into the preview so the user can position elements
+            loadPDF(files[0]);
+        }
+    });
 }
 
 document.addEventListener('DOMContentLoaded', init);

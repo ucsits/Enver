@@ -1,10 +1,12 @@
 import hashlib
 import io
+import json
 import math
 import time
 import os
 import tempfile
 import base64
+import zipfile
 from pathlib import Path
 from multiformats import multihash
 import qrcode
@@ -439,10 +441,136 @@ def sign(
     print(f"Signed message (base64)\t: {result['signed_message_b64']}")
 
 
+@cli.command()
+@click.argument("path_to_directory", type=click.Path(exists=True, file_okay=False))
+@click.argument("page_number", required=False, default=1, type=int)
+@click.argument("x", required=False, default=50, type=float)
+@click.argument("y", required=False, default=50, type=float)
+@click.option(
+    "--scale", default=1.0, type=float, help="Scale factor for the signature image"
+)
+@click.option(
+    "--signature", "-s", required=True, help="Path to the signature graphic file"
+)
+@click.option(
+    "--private-key", "-pk", required=True, help="Ethereum private key for signing"
+)
+@click.option(
+    "--organization",
+    "-o",
+    required=False,
+    default="-",
+    help="Organization name for the signature (optional)",
+)
+@click.option(
+    "--stamp", "-st", default=None, help="Path to the stamp graphic file (optional)"
+)
+@click.option(
+    "--rpc-url",
+    "-r",
+    default="https://eth.drpc.org",
+    help="Ethereum RPC URL (default: https://eth.drpc.org)",
+)
+@click.option(
+    "--qr-x", default=None, type=float, help="QR code X position"
+)
+@click.option(
+    "--qr-y", default=None, type=float, help="QR code Y position"
+)
+@click.option(
+    "--qr-rotation", default=None, type=float, help="QR code rotation in degrees"
+)
+@click.option(
+    "--qr-scale", default=None, type=float, help="QR code scale factor"
+)
+def sign_bulk(
+    path_to_directory,
+    page_number,
+    x,
+    y,
+    scale,
+    signature,
+    private_key,
+    organization,
+    stamp,
+    rpc_url,
+    qr_x,
+    qr_y,
+    qr_rotation,
+    qr_scale,
+):
+    """Bulk sign all PDFs in a directory with the same configuration."""
+    directory = Path(path_to_directory)
+    pdf_files = sorted(directory.glob("*.pdf"))
+
+    if not pdf_files:
+        click.echo(f"No PDF files found in: {path_to_directory}", err=True)
+        raise SystemExit(1)
+
+    click.echo(f"Found {len(pdf_files)} PDF file(s) in: {path_to_directory}\n")
+
+    succeeded = []
+    failed = []
+
+    for i, pdf_path in enumerate(pdf_files, 1):
+        click.echo(f"[{i}/{len(pdf_files)}] Signing: {pdf_path.name}")
+        try:
+            result = sign_document(
+                str(pdf_path),
+                page_number,
+                x,
+                y,
+                scale,
+                signature,
+                private_key,
+                organization,
+                stamp,
+                rpc_url,
+                qr_x,
+                qr_y,
+                qr_rotation,
+                qr_scale,
+            )
+            succeeded.append({"file": pdf_path.name, **result})
+            click.echo(f"  -> Saved: {result['signed_path']}")
+            click.echo(f"     Signed by: {result['signer']}")
+            click.echo(f"     CID: {result['signed_cid']}")
+        except Exception as e:
+            failed.append({"file": pdf_path.name, "error": str(e)})
+            click.echo(f"  -> FAILED: {e}", err=True)
+        click.echo()
+
+    click.echo("=" * 50)
+    click.echo(f"Bulk signing complete.")
+    click.echo(f"  Succeeded: {len(succeeded)}/{len(pdf_files)}")
+    if failed:
+        click.echo(f"  Failed:    {len(failed)}/{len(pdf_files)}")
+        for f in failed:
+            click.echo(f"    - {f['file']}: {f['error']}")
+
+    # Write results manifest
+    manifest_path = directory / "signing_results.json"
+    with open(manifest_path, "w") as mf:
+        json.dump(
+            {
+                "timestamp": math.floor(time.time() * 1000),
+                "signer": succeeded[0]["signer"] if succeeded else None,
+                "total": len(pdf_files),
+                "succeeded": len(succeeded),
+                "failed": len(failed),
+                "results": succeeded,
+                "errors": failed,
+            },
+            mf,
+            indent=2,
+        )
+    click.echo(f"\nManifest saved to: {manifest_path}")
+
+
 def create_app():
     app = Flask(__name__)
     app.secret_key = os.urandom(24)
-    app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
+    app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # 200MB for bulk uploads
     app.config["TEMP_DIR"] = Path(tempfile.gettempdir()) / "enver_ui"
     app.config["TEMP_DIR"].mkdir(parents=True, exist_ok=True)
 
@@ -537,6 +665,141 @@ def create_app():
                     "success": True,
                     "download_url": url_for("download_file", filename=signed_filename),
                     "output": f"Signed by: {result['signer']}\nOriginal CID: {result['original_cid']}\nSigned CID: {result['signed_cid']}",
+                }
+            )
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/sign-bulk", methods=["POST"])
+    def sign_bulk_pdfs():
+        try:
+            csrf_token = session.get("csrf_token")
+            submitted_token = request.form.get("csrf_token")
+            if not csrf_token or csrf_token != submitted_token:
+                return jsonify({"error": "Invalid CSRF token"}), 403
+
+            pdf_files = request.files.getlist("pdfs")
+            signature_file = request.files.get("signature")
+            stamp_file = request.files.get("stamp")
+            private_key = request.form.get("private_key")
+            organization = request.form.get("organization", "-")
+            rpc_url = request.form.get("rpc_url", "https://eth.drpc.org")
+            page_number = int(request.form.get("page_number", 1))
+
+            sig_x = float(request.form.get("sig_x", 50))
+            sig_y = float(request.form.get("sig_y", 50))
+            sig_scale = float(request.form.get("sig_scale", 1.0))
+
+            qr_x = float(request.form.get("qr_x", 66))
+            qr_y = float(request.form.get("qr_y", 62.5))
+            qr_rotation = float(request.form.get("qr_rotation", 5))
+            qr_scale = float(request.form.get("qr_scale", 1.0))
+
+            if not pdf_files or not signature_file or not private_key:
+                return jsonify({"error": "Missing required fields"}), 400
+
+            # Filter out empty/invalid files
+            valid_pdfs = []
+            for f in pdf_files:
+                if f and f.filename and f.content_type == "application/pdf":
+                    valid_pdfs.append(f)
+
+            if not valid_pdfs:
+                return jsonify({"error": "No valid PDF files provided"}), 400
+
+            if not signature_file.content_type.startswith("image/"):
+                return jsonify({"error": "Invalid signature image type"}), 400
+
+            if stamp_file and stamp_file.filename:
+                if not stamp_file.content_type.startswith("image/"):
+                    return jsonify({"error": "Invalid stamp image type"}), 400
+
+            # Save signature and stamp once (shared across all files)
+            sig_path = app.config["TEMP_DIR"] / secure_filename(signature_file.filename)
+            signature_file.save(sig_path)
+
+            stamp_path = None
+            if stamp_file and stamp_file.filename:
+                stamp_path = app.config["TEMP_DIR"] / secure_filename(
+                    stamp_file.filename
+                )
+                stamp_file.save(stamp_path)
+
+            results = []
+            errors = []
+            signed_files = []
+
+            for pdf_file in valid_pdfs:
+                pdf_path = app.config["TEMP_DIR"] / secure_filename(pdf_file.filename)
+                pdf_file.save(pdf_path)
+
+                try:
+                    result = sign_document(
+                        str(pdf_path),
+                        page_number,
+                        sig_x,
+                        sig_y,
+                        sig_scale,
+                        str(sig_path),
+                        private_key,
+                        organization,
+                        str(stamp_path) if stamp_path else None,
+                        rpc_url,
+                        qr_x,
+                        qr_y,
+                        qr_rotation,
+                        qr_scale,
+                    )
+                    signed_filename = os.path.basename(result["signed_path"])
+                    results.append(
+                        {
+                            "original_name": pdf_file.filename,
+                            "signed_filename": signed_filename,
+                            "download_url": url_for(
+                                "download_file", filename=signed_filename
+                            ),
+                            "signer": result["signer"],
+                            "original_cid": result["original_cid"],
+                            "signed_cid": result["signed_cid"],
+                        }
+                    )
+                    signed_files.append(result["signed_path"])
+                except Exception as e:
+                    errors.append({"file": pdf_file.filename, "error": str(e)})
+                finally:
+                    # Clean up the uploaded PDF copy
+                    if pdf_path.exists():
+                        os.unlink(pdf_path)
+
+            # Create a zip for download if multiple files
+            zip_filename = None
+            if len(signed_files) > 1:
+                zip_path = app.config["TEMP_DIR"] / "signed_documents.zip"
+                with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                    for sf in signed_files:
+                        zf.write(sf, os.path.basename(sf))
+                zip_filename = os.path.basename(zip_path)
+            elif len(signed_files) == 1:
+                zip_filename = os.path.basename(signed_files[0])
+
+            # Clean up shared files
+            os.unlink(sig_path)
+            if stamp_path:
+                os.unlink(stamp_path)
+
+            return jsonify(
+                {
+                    "success": True,
+                    "total": len(valid_pdfs),
+                    "succeeded": len(results),
+                    "failed": len(errors),
+                    "results": results,
+                    "errors": errors,
+                    "download_url": (
+                        url_for("download_file", filename=zip_filename)
+                        if zip_filename
+                        else None
+                    ),
                 }
             )
         except Exception as e:

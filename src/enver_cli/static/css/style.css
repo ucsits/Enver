@@ -466,7 +466,8 @@ input:focus-visible,
     .page-selector,
     #progress,
     #result,
-    #error {
+    #error,
+    #bulk-results {
         display: none !important;
     }
 
@@ -474,4 +475,101 @@ input:focus-visible,
         max-height: none;
         overflow: visible;
     }
+}
+
+/* Bulk mode styles */
+.bulk-toggle {
+    margin-bottom: 10px;
+}
+
+#bulk-results {
+    margin-top: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+}
+
+#bulk-results h3 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    color: #495057;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #dee2e6;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.progress-fill {
+    height: 100%;
+    width: 0%;
+    background: #3498db;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+#bulk-progress-text {
+    font-size: 13px;
+    color: #6c757d;
+    margin: 0 0 12px 0;
+}
+
+#bulk-result-list {
+    max-height: 250px;
+    overflow-y: auto;
+    margin-bottom: 10px;
+}
+
+.bulk-result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    margin-bottom: 4px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.bulk-result-item.success-item {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+}
+
+.bulk-result-item.error-item {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+}
+
+.bulk-result-item .file-name {
+    font-weight: 500;
+    word-break: break-all;
+    flex: 1;
+    margin-right: 10px;
+}
+
+.bulk-result-item .error-detail {
+    color: #721c24;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.bulk-result-item .download-btn {
+    color: #3498db;
+    text-decoration: none;
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+.bulk-result-item .download-btn:hover {
+    text-decoration: underline;
+}
+
+#bulk-download-link {
+    display: inline-block;
+    margin-top: 5px;
 }
